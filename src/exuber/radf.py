@@ -4,12 +4,21 @@ import numpy as np
 
 from exuber._unroot import unroot
 
-from . import _core
-
 
 def psy_minw(n: int) -> int:
     """Default minimum window: (0.01 + 1.8/sqrt(n)) * n, floored."""
     return int(np.floor((0.01 + 1.8 / np.sqrt(n)) * n))
+
+
+def psy_ds(n: int, rule: int = 1, delta: float = 1.0) -> int:
+    """Minimum duration for a datestamp() episode. rule=1: delta*log(n);
+    rule=2: delta*log(n)/n."""
+    if rule not in (1, 2):
+        raise ValueError("rule must be 1 or 2")
+    if delta <= 0:
+        raise ValueError("delta must be positive")
+    value = delta * np.log(n) if rule == 1 else delta * np.log(n) / n
+    return int(np.round(value))
 
 
 def _to_2d_array(data) -> tuple[np.ndarray, list[str] | None]:
@@ -48,6 +57,9 @@ def radf(data, minw: int | None = None, lag: int = 0) -> RadfResult:
     sadf, bsadf, gsadf, bsadf_panel, gsadf_panel), computed via the same
     exubercore::radf() routine exuber uses.
     """
+    from . import _core  # lazy: keeps the dataclasses/psy_minw importable
+    # without the compiled extension (e.g. for pure-Python unit tests).
+
     x, columns = _to_2d_array(data)
     n, nc = x.shape
     minw = minw if minw is not None else psy_minw(n)
