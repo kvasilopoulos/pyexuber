@@ -50,5 +50,6 @@ jobs:
         run: |
           uv sync --dev `
             --config-setting=cmake.define.CMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
-            --config-setting=cmake.define.VCPKG_TARGET_TRIPLET=x64-windows
+            --config-setting=cmake.define.VCPKG_TARGET_TRIPLET=x64-windows `
+            --config-setting=cmake.define.CMAKE_PREFIX_PATH="$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows"
           uv run pytest
