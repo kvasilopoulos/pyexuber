@@ -7,6 +7,13 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# exubercore builds as a static library by default (fine for its own
+# standalone use/tests), but we link it into this Python extension module,
+# which is a shared object -- static libs pulled into a .so need PIC on
+# Linux or the final link fails with "recompile with -fPIC". Set before
+# fetching exubercore so its target picks this up as its default.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module NumPy)
 find_package(pybind11 CONFIG REQUIRED)
 
