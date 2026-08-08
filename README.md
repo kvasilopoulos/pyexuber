@@ -31,8 +31,14 @@ hard dependency.
 ## Build
 
 CMake fetches [exubercore](https://github.com/kvasilopoulos/exubercore) at
-a pinned tag and [CARMA](https://github.com/RUrlus/carma) for numpy<->
-Armadillo conversion; requires a system Armadillo (pulls BLAS/LAPACK).
+a pinned tag; requires a system Armadillo (pulls BLAS/LAPACK). The
+numpy<->Armadillo conversion at the binding boundary is hand-rolled rather
+than using [CARMA](https://github.com/RUrlus/carma): CARMA unconditionally
+fetches its own separate pinned Armadillo checkout, which ends up as a
+second, ABI-incompatible copy of `arma::Mat` alongside the one exubercore
+resolves via `find_package` -- caught in CI as a segfault on the first
+call. Since the binding only ever copies at the boundary anyway (no
+zero-copy use), the fix was dropping CARMA rather than fighting it.
 
 ```sh
 uv sync --dev
