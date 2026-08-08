@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv run --no-project --with ruff ruff check src/ tests/
+      - run: uv run --no-project --with ty --with numpy ty check src/
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Install Armadillo (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libarmadillo-dev
+
+      - name: Install Armadillo (macOS)
+        if: runner.os == 'macOS'
+        run: brew install armadillo
+
+      - name: Install Armadillo (Windows)
+        if: runner.os == 'Windows'
+        run: vcpkg install armadillo --triplet x64-windows
+
+      - name: Build + test (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          uv sync --dev
+          uv run pytest
+
+      - name: Build + test (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          uv sync --dev `
+            --config-setting=cmake.define.CMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            --config-setting=cmake.define.VCPKG_TARGET_TRIPLET=x64-windows
+          uv run pytest
