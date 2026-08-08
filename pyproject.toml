@@ -1,0 +1,43 @@
+[project]
+name = "pyexuber"
+version = "0.1.0"
+description = "Recursive right-tailed unit root tests for explosive time series (Python bindings for exubercore)"
+readme = "README.md"
+authors = [
+    { name = "Kostas Vasilopoulos", email = "k.vasilopoulo@gmail.com" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.22",
+]
+
+[project.optional-dependencies]
+pandas = ["pandas>=1.4"]
+polars = ["polars>=0.20"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.8",
+    "ty>=0.0.1a1",
+]
+
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.13", "numpy>=1.22"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/{wheel_tag}"
+wheel.packages = ["src/exuber"]
+cmake.source-dir = "."
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ty.environment]
+python-version = "3.9"

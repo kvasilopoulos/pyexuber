@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Native extension artifacts (built in-place by editable installs)
+*.pyd
+*.so
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+
