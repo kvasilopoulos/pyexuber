@@ -11,8 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - run: uv run --no-project --with ruff ruff check src/ tests/
-      - run: uv run --no-project --with ty --with numpy ty check src/
+      # --no-install-project: only need numpy + dev tools resolvable for
+      # ruff/ty, not the compiled extension (avoids building it here).
+      - run: uv sync --no-install-project --dev
+      - run: uv run --no-sync ruff check src/ tests/
+      - run: uv run --no-sync ty check src/
 
   build:
     strategy:
