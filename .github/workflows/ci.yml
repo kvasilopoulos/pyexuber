@@ -39,6 +39,12 @@ jobs:
         if: runner.os == 'Windows'
         run: vcpkg install armadillo --triplet x64-windows
 
+      - name: List vcpkg install layout (Windows, debug)
+        if: runner.os == 'Windows'
+        run: |
+          Get-ChildItem "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/include" -Filter "armadillo*"
+          Get-ChildItem "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/lib" -Filter "*.lib"
+
       - name: Build + test (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
@@ -48,8 +54,16 @@ jobs:
       - name: Build + test (Windows)
         if: runner.os == 'Windows'
         run: |
+          $vcpkgDir = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows"
+          # vcpkg's toolchain file intercepts find_package globally, which broke
+          # discovery of pybind11 (a pip package, not a vcpkg one) -- pointing
+          # CMake directly at vcpkg's Armadillo/LAPACK/BLAS files avoids it
+          # entirely, same technique that worked for the local Rtools build.
           uv sync --dev `
-            --config-setting=cmake.define.CMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
-            --config-setting=cmake.define.VCPKG_TARGET_TRIPLET=x64-windows `
-            --config-setting=cmake.define.CMAKE_PREFIX_PATH="$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows"
+            --config-setting=cmake.define.ARMADILLO_INCLUDE_DIR="$vcpkgDir/include" `
+            --config-setting=cmake.define.ARMADILLO_LIBRARY="$vcpkgDir/lib/armadillo.lib" `
+            --config-setting=cmake.define.LAPACK_FOUND=TRUE `
+            --config-setting=cmake.define.LAPACK_LIBRARIES="$vcpkgDir/lib/lapack.lib" `
+            --config-setting=cmake.define.BLAS_FOUND=TRUE `
+            --config-setting=cmake.define.BLAS_LIBRARIES="$vcpkgDir/lib/blas.lib"
           uv run pytest
