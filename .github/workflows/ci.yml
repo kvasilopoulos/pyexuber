@@ -63,4 +63,8 @@ jobs:
           # --no-sync: `uv run` alone re-syncs internally without the
           # config-settings above, silently rebuilding with CMake's default
           # (vcpkg-blind) search and undoing the sync that just succeeded.
+          # x64-windows is a dynamic vcpkg triplet: the .lib files linked
+          # above are import libraries, the actual openblas/lapack/armadillo
+          # DLLs are in bin/, needed on PATH for _core.pyd to load at all.
+          $env:PATH = "$vcpkgDir/bin;$env:PATH"
           uv run --no-sync pytest
