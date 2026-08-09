@@ -60,4 +60,7 @@ jobs:
             --config-setting=cmake.define.LAPACK_LIBRARIES="$vcpkgDir/lib/lapack.lib" `
             --config-setting=cmake.define.BLAS_FOUND=TRUE `
             --config-setting=cmake.define.BLAS_LIBRARIES="$vcpkgDir/lib/openblas.lib"
-          uv run pytest
+          # --no-sync: `uv run` alone re-syncs internally without the
+          # config-settings above, silently rebuilding with CMake's default
+          # (vcpkg-blind) search and undoing the sync that just succeeded.
+          uv run --no-sync pytest
