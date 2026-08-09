@@ -65,6 +65,9 @@ jobs:
           # (vcpkg-blind) search and undoing the sync that just succeeded.
           # x64-windows is a dynamic vcpkg triplet: the .lib files linked
           # above are import libraries, the actual openblas/lapack/armadillo
-          # DLLs are in bin/, needed on PATH for _core.pyd to load at all.
-          $env:PATH = "$vcpkgDir/bin;$env:PATH"
+          # DLLs are in bin/ -- but PATH alone doesn't help: since Python
+          # 3.8, extension-module DLL resolution no longer consults PATH at
+          # all (bpo-36085), only os.add_dll_directory(). conftest.py calls
+          # that for EXUBER_DLL_DIR.
+          $env:EXUBER_DLL_DIR = "$vcpkgDir/bin"
           uv run --no-sync pytest
