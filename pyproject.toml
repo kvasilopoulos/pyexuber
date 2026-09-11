@@ -41,3 +41,6 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ty.environment]
 python-version = "3.9"
+
+[tool.pytest.ini_options]
+markers = ["network: hits the live critical-value store (deselect with -m \"not network\")"]

@@ -10,6 +10,9 @@ Scope so far:
   - sim_*: bubble DGP simulators, pure Python + numpy.
   - datestamp(): episode date-stamping (Start/Peak/End/Duration/Ongoing),
     with one simplification -- see datestamp.py's module docstring.
+  - radf_crit(): precomputed Monte Carlo critical values from the shared
+    store exuber's R package also reads (crit.py), so a typical analysis
+    needn't simulate its own.
 
 Not yet ported (deferred, not silently dropped):
   - radf_wb_cv2/distr2 (Phillips & Shi PS wild bootstrap variant): needs
@@ -22,6 +25,7 @@ Not yet ported (deferred, not silently dropped):
   - .summary()/.tidy()/.diagnostics() DataFrame-producing methods.
 """
 
+from exuber.crit import radf_crit
 from exuber.cv import RadfCv, RadfDistr, radf_mc_cv, radf_mc_distr, radf_wb_cv, radf_wb_distr
 from exuber.datestamp import Episode, datestamp
 from exuber.radf import RadfResult, psy_ds, psy_minw, radf
@@ -32,6 +36,7 @@ __all__ = [
     "RadfResult",
     "psy_minw",
     "psy_ds",
+    "radf_crit",
     "radf_mc_cv",
     "radf_mc_distr",
     "radf_wb_cv",
