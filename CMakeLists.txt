@@ -22,7 +22,7 @@ include(FetchContent)
 # Pinned to the exact exubercore tag exuber vendors -- bump both together,
 # each as its own reviewed PR (see exubercore/CONTRIBUTING.md once it
 # exists).
-set(EXUBERCORE_TAG "v0.3.0" CACHE STRING "exubercore tag to build against")
+set(EXUBERCORE_TAG "v0.3.1" CACHE STRING "exubercore tag to build against")
 FetchContent_Declare(
   exubercore
   GIT_REPOSITORY https://github.com/kvasilopoulos/exubercore.git
