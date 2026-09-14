@@ -7,9 +7,30 @@ authors = [
     { name = "Kostas Vasilopoulos", email = "k.vasilopoulo@gmail.com" }
 ]
 requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+keywords = ["econometrics", "unit-root", "bubbles", "explosive", "sadf", "gsadf", "time-series"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering",
+    "Typing :: Typed",
+]
 dependencies = [
     "numpy>=1.22",
 ]
+
+[project.urls]
+Homepage = "https://exuber.kvasilopoulos.com/"
+Repository = "https://github.com/kvasilopoulos/pyexuber"
+Issues = "https://github.com/kvasilopoulos/pyexuber/issues"
+Changelog = "https://github.com/kvasilopoulos/pyexuber/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 pandas = ["pandas>=1.4"]
@@ -23,7 +44,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["scikit-build-core>=0.10", "pybind11>=2.13"]
+requires = ["scikit-build-core>=0.11", "pybind11>=2.13"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
@@ -31,6 +52,9 @@ minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
 wheel.packages = ["src/exuber"]
 cmake.source-dir = "."
+# Dev-only files that have no business in the sdist (.gitignore'd paths
+# are already excluded by default).
+sdist.exclude = [".github/", ".claude/", "CLAUDE.md", "RELEASING.md", "uv.lock", ".python-version"]
 
 [tool.ruff]
 line-length = 100
