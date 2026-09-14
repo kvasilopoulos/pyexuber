@@ -13,6 +13,43 @@ Two modes. Pick from the request; default to **audit** if unclear.
   (`RELEASING.md`, `CONTRIBUTING.md`, `.github/workflows/release*.yml`) and
   fill gaps from this skill. Never invent a parallel process.
 
+## Who does what
+
+Claude runs the release end to end **except three human gates**. Do
+everything else without asking; stop at a gate, hand over the exact
+artifact/command, and wait.
+
+| Human gate | What Claude hands over |
+|---|---|
+| **1. Description check** — the text users see: `[project] description`, README (the PyPI landing page), classifiers/`Development Status` | a diff of proposed wording changes; commit only after approval |
+| **2. Release notes** — the version's `CHANGELOG.md` section (becomes the GitHub release body) | a drafted section from `git log vLAST..`; the human edits/approves |
+| **3. Final submission** — `git push origin vX.Y.Z` and approving the protected `pypi` environment | the ready tag command and the Actions URL; never push a `v*` tag or approve a deployment yourself |
+
+Claude owns: version bump, metadata fixes, `sdist.exclude`/cibuildwheel
+config, all local checks, the build-only dry run and the TestPyPI push
+(`gh workflow run release.yml -f target=testpypi`), watching CI
+(`gh run watch`, `gh run view --log-failed`), TestPyPI install
+verification, post-publish verification, the GitHub release
+(`gh release create vX.Y.Z --notes-from-tag` or from the CHANGELOG
+section), and opening the next `(unreleased)` CHANGELOG section.
+
+**Monitoring by email.** A Gmail connector is available
+(`mcp__claude_ai_Gmail__search_threads`, then `get_thread` with
+`messageFormat: PLAIN_TEXT`). Use it for anything that only arrives by
+mail; otherwise prefer `gh`. Queries:
+
+```
+# GitHub Actions failure / environment approval request
+from:notifications@github.com pyexuber (subject:"Run failed" OR subject:"review required" OR "requires approval") newer_than:1d
+# PyPI: trusted publisher added, new release published, security notices
+from:pypi.org pyexuber newer_than:7d
+```
+
+Poll every ~10 min while a workflow runs (or use `gh run watch`); daily
+for PyPI notices. The connector's mailbox must be the account that owns
+the GitHub/PyPI notifications — check the `toRecipients` of a hit; if
+notifications go elsewhere, say so and fall back to `gh`.
+
 ## Audit procedure
 
 1. Read `pyproject.toml`, `README*`, `LICENSE*`, `CHANGELOG*`,
@@ -57,10 +94,11 @@ through the workflow's TestPyPI path. Verify with
 `pip install --index-url https://test.pypi.org/simple/ --no-deps PKG==X.Y.Z`
 (`--no-deps`: TestPyPI's dependency set is incomplete).
 
-Real release: tag `vX.Y.Z` → CI builds → protected `pypi` environment
-approval → `pypa/gh-action-pypi-publish` (PEP 740 attestations are
-automatic ≥ 1.11). Then `pip install PKG==X.Y.Z` in a clean venv, GitHub
-release from the CHANGELOG section, start the next `(unreleased)` section.
+Real release (gate 3): the human tags and pushes `vX.Y.Z` → CI builds →
+the human approves the protected `pypi` environment →
+`pypa/gh-action-pypi-publish` (PEP 740 attestations are automatic ≥ 1.11).
+Then Claude: `pip install PKG==X.Y.Z` in a clean venv, GitHub release from
+the approved CHANGELOG section, open the next `(unreleased)` section.
 
 Manual fallback only: `uv publish --token pypi-...` (project-scoped token,
 never account-wide, never committed).
