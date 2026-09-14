@@ -25,11 +25,19 @@ Not yet ported (deferred, not silently dropped):
   - .summary()/.tidy()/.diagnostics() DataFrame-producing methods.
 """
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _version
+
 from exuber.crit import radf_crit
 from exuber.cv import RadfCv, RadfDistr, radf_mc_cv, radf_mc_distr, radf_wb_cv, radf_wb_distr
 from exuber.datestamp import Episode, datestamp
 from exuber.radf import RadfResult, psy_ds, psy_minw, radf
 from exuber.sim import sim_blan, sim_div, sim_evans, sim_ps1, sim_ps2, sim_psy1, sim_psy2
+
+try:
+    __version__ = _version("pyexuber")
+except PackageNotFoundError:  # source tree on sys.path without an install
+    __version__ = "0+unknown"
 
 __all__ = [
     "radf",
