@@ -2,7 +2,7 @@
 
 Same object store exuber's R client (exuber/R/crit-bucket.R) reads: one
 small xz-compressed binary per (lag, n), served read-only by the Railway
-proxy whose source lives in ../crit/exuber-fn.ts. Fetched tables are cached
+proxy (exubercrit/scripts/exuber-fn.ts). Fetched tables are cached
 on disk so a given (n, lag) is downloaded once per machine.
 
 Binary layout (little-endian): int32 x4 = n, minw, lag, nrows; float64 x3

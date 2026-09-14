@@ -1,61 +1,77 @@
 # pyexuber
 
-Python bindings for [exubercore](https://github.com/kvasilopoulos/exubercore),
-the C++ core behind the R package
-[exuber](https://github.com/kvasilopoulos/exuber) (recursive right-tailed
-unit root tests -- ADF/SADF/GSADF/BSADF -- for detecting explosive dynamics
-in time series). Distributed as `pyexuber`, imported as `exuber`.
+Recursive right-tailed unit root tests (ADF/SADF/GSADF/BSADF, Phillips,
+Shi & Yu 2015) for detecting explosive dynamics -- bubbles -- in time
+series. The Python counterpart of the R package
+[exuber](https://github.com/kvasilopoulos/exuber): the statistic is
+computed by the same C++ core, [exubercore](https://github.com/kvasilopoulos/exubercore),
+so both packages produce identical numbers for the same input.
 
-## Scope
+Distributed as `pyexuber`, imported as `exuber`.
 
-This currently binds only `exubercore::radf()`, the recursive least-squares
-ADF/SADF/GSADF/BSADF statistic -- the numerically expensive routine.
-Everything RNG-driven (Monte Carlo/wild/sieve bootstrap critical values,
-date-stamping, the bubble DGP simulators) is exuber R-side orchestration
-around repeated calls to that routine, not yet ported here; that's future
-work, mirroring whatever exuber itself ends up doing for those pieces.
-
-```python
-import numpy as np
-import exuber
-
-data = np.cumsum(np.random.randn(200))
-result = exuber.radf(data)
-result.adf, result.sadf, result.gsadf
+```sh
+pip install pyexuber
 ```
 
-`exuber.radf()` accepts a numpy array, a 1-D sequence, or anything exposing
-`.to_numpy()` (pandas/polars DataFrames) -- neither pandas nor polars is a
-hard dependency.
+## Usage
 
-## Build
+```python
+import exuber
 
-CMake fetches [exubercore](https://github.com/kvasilopoulos/exubercore) at
-a pinned tag; requires a system Armadillo (pulls BLAS/LAPACK). The
-numpy<->Armadillo conversion at the binding boundary is hand-rolled rather
-than using [CARMA](https://github.com/RUrlus/carma): CARMA unconditionally
-fetches its own separate pinned Armadillo checkout, which ends up as a
-second, ABI-incompatible copy of `arma::Mat` alongside the one exubercore
-resolves via `find_package` -- caught in CI as a segfault on the first
-call. Since the binding only ever copies at the boundary anyway (no
-zero-copy use), the fix was dropping CARMA rather than fighting it.
+y = exuber.sim_psy1(200, seed=1)          # single-bubble DGP
+res = exuber.radf(y)                      # ADF / SADF / GSADF + BSADF sequence
+cv = exuber.radf_crit(n=200)              # precomputed Monte Carlo critical values
+exuber.datestamp(res, cv)                 # {'series1': [Episode(start=..., peak=..., end=...)]}
+```
+
+`radf()` accepts a numpy array, a 1-D sequence, or anything with
+`.to_numpy()` (a pandas or polars DataFrame -- neither is a dependency;
+column names become series names). Multi-column input runs the panel
+version too (`bsadf_panel`, `gsadf_panel`).
+
+## What's in the box
+
+| | |
+|---|---|
+| `radf(data, minw=None, lag=0)` | recursive ADF/SADF/GSADF/BSADF statistics (C++) |
+| `radf_crit(n, lag=0)` | precomputed Monte Carlo critical values from the shared store exuber's R package also reads; fetched once, cached on disk |
+| `radf_mc_cv` / `radf_mc_distr` | Monte Carlo critical values / distributions, simulated locally |
+| `radf_wb_cv` / `radf_wb_distr` | wild-bootstrap critical values (Harvey, Leybourne, Sollis & Taylor 2016) |
+| `datestamp(result, cv, ...)` | start / peak / end / duration of each explosive episode |
+| `sim_psy1`, `sim_psy2`, `sim_ps1`, `sim_ps2`, `sim_blan`, `sim_evans`, `sim_div` | bubble DGP simulators |
+| `psy_minw`, `psy_ds` | the PSY default minimum window and minimum duration rules |
+
+Not yet ported from exuber (deferred, see `exuber/__init__.py`'s
+docstring for why): the Phillips & Shi wild-bootstrap variant, the sieve
+bootstrap, and `summary()`/`tidy()`-style DataFrame outputs.
+
+## Notes
+
+- **Critical values.** `radf_crit()` covers lag 0-4 and n up to 4000; it
+  returns `None` for combinations that haven't been simulated (fall back
+  to `radf_mc_cv`). The store is documented at
+  [exuber.kvasilopoulos.com](https://exuber.kvasilopoulos.com/).
+- **Reproducibility.** The simulators and bootstraps use numpy's
+  `Generator`, not R's RNG: a given `seed` gives the same draws across
+  Python runs, not the same draws as the R function of the same name.
+- **Numerics.** The `lag > 0` path of the statistic isn't guaranteed
+  bit-identical across compilers at 1e-12 (sequential recursive updates);
+  tests use 1e-9 there. `lag == 0` matches R to 1e-12.
+
+## Building from source
+
+Wheels are published for Linux x86_64, macOS (arm64, x86_64) and Windows
+x86_64. Building from the sdist needs a C++17 compiler, CMake >= 3.16 and
+a system [Armadillo](https://arma.sourceforge.net/) (with BLAS/LAPACK) --
+`apt install libarmadillo-dev`, `brew install armadillo`, or
+`vcpkg install armadillo` on Windows with MSVC. CMake fetches exubercore
+at a pinned tag during the build.
 
 ```sh
 uv sync --dev
 uv run pytest
 ```
 
-**Windows/Rtools-only dev note:** on a box with only Rtools' MinGW
-toolchain and no MSVC (this project's original dev machine), the build
-needs an explicit generator/compiler override and currently fails at the
-final static link against Rtools' `libarmadillo.a` (missing LAPACK symbols
-from a static-archive linking quirk specific to that toolchain layout) --
-unresolved, not chased further since it's a local-only limitation: real
-Windows builds should use MSVC + vcpkg (see CI), the same combination
-already proven working for `exubercore` itself.
+## License
 
-## Numerics
-
-Same tolerance caveat as exubercore: the `lag > 0` path isn't guaranteed
-bit-identical across toolchains at 1e-12 (cross-compiler floating-point
-drift over its O(n^2) sequential updates); tests use 1e-9 there.
+GPL-3.0-or-later, same as exuber.
