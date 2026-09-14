@@ -35,13 +35,12 @@ section), and opening the next `(unreleased)` CHANGELOG section.
 
 **Monitoring by email.** Use mail only for what doesn't reach `gh`
 (PyPI notices, environment-approval requests). The release mailbox is
-**`k.vasilopoulo@gmail.com`** (the `authors` address in `pyproject.toml`;
-GitHub/PyPI notifications should go there), read through the local MCP
-server `gmail-maintainer`: `mcp__gmail-maintainer__search_emails` (`query`,
-`maxResults`) → `mcp__gmail-maintainer__read_email` (`messageId`). Tools
-absent → server not registered/authorized: fall back to `gh` and say so.
-The claude.ai Gmail connector (`mcp__claude_ai_Gmail__*`) is the personal
-account `kostasvasilo91@gmail.com` — not used for releases.
+`k.vasilopoulo@gmail.com` (the `authors` address in `pyproject.toml`),
+which is the account behind the claude.ai Gmail connector:
+`mcp__claude_ai_Gmail__search_threads` (`query`, Gmail syntax) →
+`mcp__claude_ai_Gmail__get_thread` with `messageFormat: PLAIN_TEXT`. Check
+a hit's `toRecipients` is that address before acting on it; if the
+connector is ever re-pointed elsewhere, fall back to `gh` and say so.
 
 Queries (Gmail syntax):
 
