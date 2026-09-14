@@ -22,7 +22,7 @@ uv run ty check src/
 ```
 
 CMake `FetchContent`-fetches exubercore at a pinned tag (`EXUBERCORE_TAG`
-in `CMakeLists.txt`, currently `v0.1.0`) — bump it and `exuber`'s own pin
+in `CMakeLists.txt`, currently `v0.3.0`) — bump it and `exuber`'s own pin
 together, per exubercore/CLAUDE.md's release-mechanism note.
 
 **Windows/Rtools-only dev note:** a box with only Rtools' MinGW toolchain
