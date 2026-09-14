@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Kostas Vasilopoulos", email = "k.vasilopoulo@gmail.com" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.22",
 ]
@@ -34,13 +34,13 @@ cmake.source-dir = "."
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ty.environment]
-python-version = "3.9"
+python-version = "3.10"
 
 [tool.pytest.ini_options]
 markers = ["network: hits the live critical-value store (deselect with -m \"not network\")"]
