@@ -12,6 +12,19 @@ DGP simulators as pure Python. Read that docstring, not the README, for
 current scope — including what's deliberately deferred (PS wild-bootstrap
 variant, sieve bootstrap, `.summary()`/`.tidy()` methods) and why.
 
+## Methodology record: `../docs/`
+
+Shared with exuber and exubercore; `../docs/README.md` is the map.
+`../docs/parity.md` is this package's port checklist — one row per
+method with the R function, the Python function (or `deferred`/`—`) and
+why. When you port something: update its row, and if the cross-check
+against R is worth keeping re-runnable, archive it as
+`../docs/replication/<family>/<function>_validation.py` next to the R
+script (convention in `../docs/replication/README.md`). The method's
+formulas, published constants and validated numbers are in
+`../docs/<family>.md` — port from there and from `exuber/R/`, not from
+the paper alone.
+
 ## Build & test
 
 ```sh
