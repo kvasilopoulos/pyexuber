@@ -34,17 +34,16 @@ verification, post-publish verification, the GitHub release
 section), and opening the next `(unreleased)` CHANGELOG section.
 
 **Monitoring by email.** Use mail only for what doesn't reach `gh`
-(PyPI notices, environment-approval requests). Two mailboxes are
-reachable — pick the one GitHub/PyPI notify (the account's email on
-github.com / pypi.org; `k.vasilopoulo@gmail.com` is the `authors` address
-in `pyproject.toml`):
+(PyPI notices, environment-approval requests). The release mailbox is
+**`k.vasilopoulo@gmail.com`** (the `authors` address in `pyproject.toml`;
+GitHub/PyPI notifications should go there), read through the local MCP
+server `gmail-maintainer`: `mcp__gmail-maintainer__search_emails` (`query`,
+`maxResults`) → `mcp__gmail-maintainer__read_email` (`messageId`). Tools
+absent → server not registered/authorized: fall back to `gh` and say so.
+The claude.ai Gmail connector (`mcp__claude_ai_Gmail__*`) is the personal
+account `kostasvasilo91@gmail.com` — not used for releases.
 
-| Mailbox | Tools |
-|---|---|
-| `k.vasilopoulo@gmail.com` | local MCP server `gmail-maintainer`: `mcp__gmail-maintainer__search_emails` (`query`, `maxResults`) → `mcp__gmail-maintainer__read_email` (`messageId`); tools absent → not registered/authorized, fall back to `gh` and say so |
-| `kostasvasilo91@gmail.com` | claude.ai connector: `mcp__claude_ai_Gmail__search_threads` → `get_thread` with `messageFormat: PLAIN_TEXT` |
-
-Queries (Gmail syntax in both):
+Queries (Gmail syntax):
 
 ```
 # GitHub Actions failure / environment approval request
