@@ -68,3 +68,40 @@ python-version = "3.10"
 
 [tool.pytest.ini_options]
 markers = ["network: hits the live critical-value store (deselect with -m \"not network\")"]
+
+# Wheel builds for PyPI (.github/workflows/release.yml). Each platform has
+# to provide Armadillo (+ BLAS/LAPACK) before the build; the repair step
+# (auditwheel/delocate/delvewheel) then bundles those shared libraries into
+# the wheel so users need nothing but pip.
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-*"
+skip = "*-musllinux_* *_i686 *-win32 *_arm64_win"
+build-verbosity = 1
+test-requires = "pytest"
+test-command = "pytest {project}/tests -m \"not network\""
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64"]
+manylinux-x86_64-image = "manylinux_2_28"
+# EPEL carries armadillo for EL8; its lapack/openblas deps live in powertools.
+before-all = [
+  "dnf install -y epel-release dnf-plugins-core",
+  "dnf config-manager --set-enabled powertools",
+  "dnf install -y armadillo-devel",
+]
+
+[tool.cibuildwheel.macos]
+before-all = "brew install armadillo"
+# Homebrew's armadillo bottle is built for the runner's own macOS; delocate
+# refuses to bundle a library newer than the wheel's target, so target the
+# runner's OS (macos-15 / macos-15-intel in release.yml).
+environment = { MACOSX_DEPLOYMENT_TARGET = "15.0" }
+
+[tool.cibuildwheel.windows]
+# Same explicit vcpkg wiring as ci.yml (the vcpkg toolchain file breaks
+# pybind11's pip-side discovery). C:/vcpkg is GitHub's hosted-runner
+# location, not configurable from here.
+before-all = "vcpkg install armadillo --triplet x64-windows"
+config-settings = { "cmake.define.ARMADILLO_INCLUDE_DIR" = "C:/vcpkg/installed/x64-windows/include", "cmake.define.ARMADILLO_LIBRARY" = "C:/vcpkg/installed/x64-windows/lib/armadillo.lib", "cmake.define.LAPACK_FOUND" = "TRUE", "cmake.define.LAPACK_LIBRARIES" = "C:/vcpkg/installed/x64-windows/lib/lapack.lib", "cmake.define.BLAS_FOUND" = "TRUE", "cmake.define.BLAS_LIBRARIES" = "C:/vcpkg/installed/x64-windows/lib/openblas.lib" }
+before-build = "pip install delvewheel"
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --add-path C:/vcpkg/installed/x64-windows/bin"
