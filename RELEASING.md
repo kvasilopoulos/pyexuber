@@ -30,12 +30,14 @@ marked.
       `[tool.cibuildwheel] build`; `Development Status` still accurate.
 - [ ] `src/exuber/__init__.py` docstring's "not yet ported" list is current.
 - [ ] Local: `uv run --no-sync ruff check src/ tests/ && uv run --no-sync ty check src/`
-- [ ] Local: `uv build --sdist && tar tzf dist/*.tar.gz` -- no stray
-      files (build/, .venv, caches, CLAUDE.md, .github).
+- [ ] Local: `uv build --sdist && uvx twine check --strict dist/* && tar tzf dist/*.tar.gz`
+      -- metadata/README render OK, no stray files (build/, .venv,
+      caches, CLAUDE.md, .github).
 - [ ] Dry run: Actions -> Release -> Run workflow (target = `none`) on
       `main`; all four wheel jobs + sdist green. Download a wheel artifact
-      and `pip install` it into a clean venv, then:
-      `python -c "import exuber; print(exuber.radf(exuber.sim_psy1(100, seed=1)).gsadf)"`
+      and `uvx check-wheel-contents <wheel>`, then `pip install` it into
+      a clean venv and run:
+      `python -c "import exuber; print(exuber.__version__, exuber.radf(exuber.sim_psy1(100, seed=1)).gsadf)"`
 - [ ] Optional: same with target = `testpypi`, then
       `pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple pyexuber==X.Y.Z`.
 
