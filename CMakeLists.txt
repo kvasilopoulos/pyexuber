@@ -14,7 +14,7 @@ endif()
 # fetching exubercore so its target picks this up as its default.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module NumPy)
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(pybind11 CONFIG REQUIRED)
 
 include(FetchContent)

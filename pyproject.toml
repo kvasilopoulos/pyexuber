@@ -23,7 +23,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["scikit-build-core>=0.10", "pybind11>=2.13", "numpy>=1.22"]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.13"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
