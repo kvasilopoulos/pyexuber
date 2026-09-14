@@ -3,7 +3,7 @@ name: Release
 # Builds sdist + wheels on every run; publishes only when triggered by a
 # v* tag (to PyPI) or manually with target=testpypi. Trusted publishing
 # (OIDC): no API token, but the PyPI/TestPyPI project must list this
-# workflow as a publisher -- see RELEASING.md.
+# workflow as a publisher -- see .claude/skills/pypi-release/checklist.md.
 on:
   push:
     tags: ["v*"]
