@@ -33,10 +33,18 @@ verification, post-publish verification, the GitHub release
 (`gh release create vX.Y.Z --notes-from-tag` or from the CHANGELOG
 section), and opening the next `(unreleased)` CHANGELOG section.
 
-**Monitoring by email.** A Gmail connector is available
-(`mcp__claude_ai_Gmail__search_threads`, then `get_thread` with
-`messageFormat: PLAIN_TEXT`). Use it for anything that only arrives by
-mail; otherwise prefer `gh`. Queries:
+**Monitoring by email.** Use mail only for what doesn't reach `gh`
+(PyPI notices, environment-approval requests). Two mailboxes are
+reachable — pick the one GitHub/PyPI notify (the account's email on
+github.com / pypi.org; `k.vasilopoulo@gmail.com` is the `authors` address
+in `pyproject.toml`):
+
+| Mailbox | Tools |
+|---|---|
+| `k.vasilopoulo@gmail.com` | local MCP server `gmail-maintainer`: `mcp__gmail-maintainer__search_emails` (`query`, `maxResults`) → `mcp__gmail-maintainer__read_email` (`messageId`); tools absent → not registered/authorized, fall back to `gh` and say so |
+| `kostasvasilo91@gmail.com` | claude.ai connector: `mcp__claude_ai_Gmail__search_threads` → `get_thread` with `messageFormat: PLAIN_TEXT` |
+
+Queries (Gmail syntax in both):
 
 ```
 # GitHub Actions failure / environment approval request
@@ -46,9 +54,7 @@ from:pypi.org pyexuber newer_than:7d
 ```
 
 Poll every ~10 min while a workflow runs (or use `gh run watch`); daily
-for PyPI notices. The connector's mailbox must be the account that owns
-the GitHub/PyPI notifications — check the `toRecipients` of a hit; if
-notifications go elsewhere, say so and fall back to `gh`.
+for PyPI notices.
 
 ## Audit procedure
 
