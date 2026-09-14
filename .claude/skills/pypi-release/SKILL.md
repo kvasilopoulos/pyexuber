@@ -38,7 +38,7 @@ section), and opening the next `(unreleased)` CHANGELOG section.
 the `authors` email in `pyproject.toml`; the claude.ai Gmail connector is
 on that account: `mcp__claude_ai_Gmail__search_threads` (`query`, Gmail
 syntax) → `mcp__claude_ai_Gmail__get_thread` with `messageFormat:
-PLAIN_TEXT`. Check a hit's `toRecipients` is that address before acting on
+PLAIN_TEXT`. Check a hit's `to_recipients` is that address before acting on
 it; if it isn't, the connector is on another account — fall back to `gh`
 and say so.
 
