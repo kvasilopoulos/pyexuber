@@ -1,8 +1,9 @@
 # Releasing pyexuber to PyPI
 
-Copy this list into the release PR/issue and tick it. Every item is
-either a command or a yes/no check; nothing here is optional unless
-marked.
+Run by the `pypi-release` skill's release mode; copy into the release
+PR/issue and tick as you go. Every item is a command or a yes/no check;
+nothing is optional unless marked. Items tagged **[gate]** are the human
+gates from `SKILL.md` — Claude stops there and hands over.
 
 ## 1. One-time setup (skip once done)
 
@@ -21,11 +22,12 @@ marked.
       `exuber` (R) vendors -- the two must not drift.
 - [ ] `version` in `pyproject.toml` bumped (semver; pre-1.0 breaking
       changes bump minor).
-- [ ] `CHANGELOG.md`: rename "(unreleased)" to today's date, entries
-      cover every user-visible change since the last tag
+- [ ] **[gate 2]** `CHANGELOG.md`: rename "(unreleased)" to today's date,
+      entries cover every user-visible change since the last tag
       (`git log --oneline vLAST..`).
-- [ ] `README.md` still describes what the package does (scope table,
-      supported platforms, Python floor) -- it is the PyPI landing page.
+- [ ] **[gate 1]** `README.md` and `[project] description` still describe
+      what the package does (scope table, supported platforms, Python
+      floor) -- it is the PyPI landing page.
 - [ ] `classifiers` in `pyproject.toml`: Python versions match
       `[tool.cibuildwheel] build`; `Development Status` still accurate.
 - [ ] `src/exuber/__init__.py` docstring's "not yet ported" list is current.
@@ -41,7 +43,7 @@ marked.
 - [ ] Optional: same with target = `testpypi`, then
       `pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple pyexuber==X.Y.Z`.
 
-## 3. Tag and publish
+## 3. Tag and publish -- **[gate 3]**, the human runs these
 
 ```sh
 git tag -a vX.Y.Z -m "pyexuber X.Y.Z"

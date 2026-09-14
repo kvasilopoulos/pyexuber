@@ -9,15 +9,15 @@ Two modes. Pick from the request; default to **audit** if unclear.
 
 - **audit** – read the repo, compare against `reference.md`, report gaps as a
   checklist (file:line, what, fix). Don't edit unless asked.
-- **release** – run the project's own checklist if one exists
-  (`RELEASING.md`, `CONTRIBUTING.md`, `.github/workflows/release*.yml`) and
-  fill gaps from this skill. Never invent a parallel process.
+- **release** – run `checklist.md` (next to this file: the per-release
+  list, tick it as you go) together with `.github/workflows/release.yml`.
+  Fill gaps from this skill; never invent a parallel process.
 
 ## Who does what
 
 Claude runs the release end to end **except three human gates**. Do
 everything else without asking; stop at a gate, hand over the exact
-artifact/command, and wait.
+artifact/command, and wait. `checklist.md` marks which items are gates.
 
 | Human gate | What Claude hands over |
 |---|---|

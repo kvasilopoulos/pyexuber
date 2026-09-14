@@ -57,7 +57,7 @@ wheel.packages = ["src/exuber"]
 cmake.source-dir = "."
 # Dev-only files that have no business in the sdist (.gitignore'd paths
 # are already excluded by default).
-sdist.exclude = [".github/", ".claude/", "CLAUDE.md", "RELEASING.md", "uv.lock", ".python-version"]
+sdist.exclude = [".github/", ".claude/", "CLAUDE.md", "uv.lock", ".python-version"]
 
 [tool.ruff]
 line-length = 100

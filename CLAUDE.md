@@ -41,7 +41,8 @@ before running tests on Windows with a fresh vcpkg install.
 PyPI, via `.github/workflows/release.yml`: pushing a `vX.Y.Z` tag builds
 sdist + wheels (cibuildwheel, config in `pyproject.toml`) and publishes
 through trusted publishing; `workflow_dispatch` does a build-only dry run
-or a TestPyPI push. `RELEASING.md` is the per-release checklist -- follow
-it, don't improvise. Version is static in `pyproject.toml` and the
+or a TestPyPI push. `.claude/skills/pypi-release/checklist.md` is the
+per-release checklist (run by the `pypi-release` skill) -- follow it,
+don't improvise. Version is static in `pyproject.toml` and the
 workflow refuses a tag that doesn't match it. Pre-1.0: no deprecation
 cycle, breaking API changes just land with a CHANGELOG entry.
