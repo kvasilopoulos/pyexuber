@@ -38,9 +38,10 @@ before running tests on Windows with a fresh vcpkg install.
 
 ## Release mechanism
 
-No PyPI publish exists yet (`pyproject.toml` version is `0.1.0`, no
-`.github/workflows/` publish/release job) — CI is lint + build-and-test
-only. When a release workflow gets added, mirror whatever `exuber` ends up
-doing for the same methods rather than inventing a separate versioning
-scheme; until then there's no deprecation cycle to maintain either (no
-external consumers, pre-1.0, breaking API changes just land).
+PyPI, via `.github/workflows/release.yml`: pushing a `vX.Y.Z` tag builds
+sdist + wheels (cibuildwheel, config in `pyproject.toml`) and publishes
+through trusted publishing; `workflow_dispatch` does a build-only dry run
+or a TestPyPI push. `RELEASING.md` is the per-release checklist -- follow
+it, don't improvise. Version is static in `pyproject.toml` and the
+workflow refuses a tag that doesn't match it. Pre-1.0: no deprecation
+cycle, breaking API changes just land with a CHANGELOG entry.
