@@ -13,8 +13,9 @@ Scope so far:
   - radf_crit(): precomputed Monte Carlo critical values from the shared
     store exuber's R package also reads (crit.py), so a typical analysis
     needn't simulate its own.
-  - rootstamp()/rootstamp_episodes(), dating_pdc(): dating and root
-    inference (dating.py) -- see its module docstring for scope/caveats.
+  - rootstamp()/rootstamp_episodes(), dating_pdc(), radf_recovery()/
+    radf_recovery_cv(): dating and root inference (dating.py) -- see its
+    module docstring for scope/caveats.
 
 Not yet ported (deferred, not silently dropped):
   - radf_wb_cv2/distr2 (Phillips & Shi PS wild bootstrap variant): needs
@@ -35,9 +36,13 @@ from exuber.cv import RadfCv, RadfDistr, radf_mc_cv, radf_mc_distr, radf_wb_cv, 
 from exuber.datestamp import Episode, datestamp
 from exuber.dating import (
     DatingPdcResult,
+    RadfRecoveryCv,
+    RadfRecoveryResult,
     RootstampEpisode,
     RootstampEst,
     dating_pdc,
+    radf_recovery,
+    radf_recovery_cv,
     rootstamp,
     rootstamp_episodes,
 )
@@ -76,4 +81,8 @@ __all__ = [
     "RootstampEpisode",
     "dating_pdc",
     "DatingPdcResult",
+    "radf_recovery",
+    "radf_recovery_cv",
+    "RadfRecoveryResult",
+    "RadfRecoveryCv",
 ]
