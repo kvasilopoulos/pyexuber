@@ -39,3 +39,10 @@ def test_radf_wb_ps_validation_script():
     m.check_lag_select_and_adf_res()
     m.check_radf_wb_ps_cv_shapes()
     m.check_tb_mode()
+
+
+def test_radf_sb_cv_aic_bic_validation_script():
+    m = _load("radf_sb_cv_aic_bic_validation")
+    m.check_lag_select_bit_for_bit()
+    m.check_radf_sb_cv_fixed_vs_default()
+    m.check_radf_sb_cv_shapes_lag_gt_0()
