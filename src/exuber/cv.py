@@ -453,7 +453,7 @@ def radf_sb_cv(
     autocorrelated innovations."""
     r = _radf_sb(data, minw, lag, nboot, type, max_lag, seed)
 
-    bsadf_cv = np.quantile(r["bsadf_panel"], PCNT, axis=1)
+    bsadf_cv = np.quantile(r["bsadf_panel"], PCNT, axis=1).T
     gsadf_cv = np.quantile(r["gsadf_panel"], PCNT)
 
     return RadfSbCv(
