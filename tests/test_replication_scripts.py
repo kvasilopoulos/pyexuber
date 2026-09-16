@@ -17,13 +17,11 @@ from pathlib import Path
 
 import pytest
 
-REPLICATION_DIR = (
-    Path(__file__).resolve().parents[2] / "docs" / "replication" / "volatility-robustness"
-)
+REPLICATION_ROOT = Path(__file__).resolve().parents[2] / "docs" / "replication"
 
 
-def _load(name: str):
-    path = REPLICATION_DIR / f"{name}.py"
+def _load(family: str, name: str):
+    path = REPLICATION_ROOT / family / f"{name}.py"
     if not path.exists():
         pytest.skip(f"{path} not present (standalone pyexuber checkout, not the umbrella repo)")
     spec = importlib.util.spec_from_file_location(name, path)
@@ -35,14 +33,25 @@ def _load(name: str):
 
 
 def test_radf_wb_ps_validation_script():
-    m = _load("radf_wb_ps_validation")
+    m = _load("volatility-robustness", "radf_wb_ps_validation")
     m.check_lag_select_and_adf_res()
     m.check_radf_wb_ps_cv_shapes()
     m.check_tb_mode()
 
 
 def test_radf_sb_cv_aic_bic_validation_script():
-    m = _load("radf_sb_cv_aic_bic_validation")
+    m = _load("volatility-robustness", "radf_sb_cv_aic_bic_validation")
     m.check_lag_select_bit_for_bit()
     m.check_radf_sb_cv_fixed_vs_default()
     m.check_radf_sb_cv_shapes_lag_gt_0()
+
+
+def test_tidy_validation_script():
+    m = _load("core-workflow", "tidy_validation")
+    m.check_tidy_wide()
+    m.check_tidy_long()
+    m.check_tidy_panel()
+    m.check_augment_wide()
+    m.check_augment_long()
+    m.check_augment_panel()
+    m.check_augment_trunc_false()

@@ -17,12 +17,18 @@ Scope so far:
   - radf_crit(): precomputed Monte Carlo critical values from the shared
     store exuber's R package also reads (crit.py), so a typical analysis
     needn't simulate its own.
+  - tidy()/augment(): DataFrame-producing accessors for a RadfResult
+    (radf_obj's methods only, not radf_cv/radf_distr's, and not
+    tidy_join/augment_join/summary/diagnostics -- see tidy.py's module
+    docstring). Needs pandas (`pip install pyexuber[pandas]`), lazily
+    imported.
 
 Not yet ported (deferred, not silently dropped):
   - the 2026-08 sim_*() DGP extensions (sim_coexplosive, sim_common,
     sim_falsebubble, sim_fi, sim_mar, sim_msbubble, sim_tree, sim_vol_*,
     sim_dgp1/2, sim_innov, and optional axes on sim_psy1/sim_blan).
-  - .summary()/.tidy()/.diagnostics() DataFrame-producing methods.
+  - tidy()/augment() for radf_cv/radf_distr, tidy_join()/augment_join(),
+    summary(), diagnostics().
 
 Note on radf_sb_cv/distr: exuber's own R/radf_sb.R has an off-by-one bug
 in its bootstrap DGP for lag > 0 (`initmat[j, lag:1]` is one element short
@@ -53,6 +59,7 @@ from exuber.cv import (
 from exuber.datestamp import Episode, datestamp
 from exuber.radf import RadfResult, psy_ds, psy_minw, radf
 from exuber.sim import sim_blan, sim_div, sim_evans, sim_ps1, sim_ps2, sim_psy1, sim_psy2
+from exuber.tidy import augment, tidy
 
 try:
     __version__ = _version("pyexuber")
@@ -86,4 +93,6 @@ __all__ = [
     "sim_blan",
     "sim_evans",
     "sim_div",
+    "tidy",
+    "augment",
 ]
