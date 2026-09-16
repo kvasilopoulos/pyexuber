@@ -1,6 +1,7 @@
-"""Multivariate bubble tests. Ports of exuber's R/radf_common.R (this
-section) -- see docs/multivariate.md for the full evaluation each
-function implements.
+"""Multivariate bubble tests. Ports of exuber's R/radf_common.R,
+R/cobubble_test.R, and R/contagion_reg.R (one section each, below) --
+see docs/multivariate.md for the full evaluation each function
+implements.
 """
 
 from dataclasses import dataclass
