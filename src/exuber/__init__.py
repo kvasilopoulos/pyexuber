@@ -15,6 +15,8 @@ Scope so far:
     needn't simulate its own.
   - radf_common/radf_common_cv (Chen, Phillips & Shi 2023 common-bubble
     detection via PCA + PSY): multivariate.py.
+  - cobubble_test() (Evripidou, Harvey, Leybourne & Sollis 2022
+    co-explosive behaviour test): multivariate.py.
 
 Not yet ported (deferred, not silently dropped):
   - radf_wb_cv2/distr2 (Phillips & Shi PS wild bootstrap variant): needs
@@ -33,7 +35,14 @@ from importlib.metadata import version as _version
 from exuber.crit import radf_crit
 from exuber.cv import RadfCv, RadfDistr, radf_mc_cv, radf_mc_distr, radf_wb_cv, radf_wb_distr
 from exuber.datestamp import Episode, datestamp
-from exuber.multivariate import RadfCommonCv, RadfCommonResult, radf_common, radf_common_cv
+from exuber.multivariate import (
+    CobubbleTestResult,
+    RadfCommonCv,
+    RadfCommonResult,
+    cobubble_test,
+    radf_common,
+    radf_common_cv,
+)
 from exuber.radf import RadfResult, psy_ds, psy_minw, radf
 from exuber.sim import sim_blan, sim_div, sim_evans, sim_ps1, sim_ps2, sim_psy1, sim_psy2
 
@@ -60,6 +69,8 @@ __all__ = [
     "radf_common_cv",
     "RadfCommonResult",
     "RadfCommonCv",
+    "cobubble_test",
+    "CobubbleTestResult",
     "sim_psy1",
     "sim_psy2",
     "sim_ps1",
