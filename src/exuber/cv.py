@@ -1,16 +1,19 @@
-"""Monte Carlo / wild bootstrap critical values. Ports of exuber's
-R/radf_mc.R and R/radf_wb.R (HLST variant only -- see module docstring
-in __init__.py for what's not yet ported).
+"""Monte Carlo / bootstrap critical values. Ports of exuber's R/radf_mc.R
+and R/radf_wb.R (both the HLST and Phillips-Shi wild bootstrap variants).
 
 RNG note: uses numpy's Generator, not R's RNG -- a given `seed` will not
 reproduce the same draws as the R functions of the same name. See
-exubercore's RNG design note / sim.py's module docstring.
+exubercore's RNG design note / sim.py's module docstring. lag_select()/
+adf_res() (_lagselect.py) are the exception: they're deterministic (no
+RNG) and verified bit-for-bit against R -- see
+docs/replication/volatility-robustness/radf_wb_ps_validation.R.
 """
 
 from dataclasses import dataclass
 
 import numpy as np
 
+from exuber._lagselect import AdfRes, adf_res
 from exuber._unroot import unroot
 from exuber.radf import _to_2d_array, psy_minw
 
@@ -181,3 +184,142 @@ def radf_wb_distr(
         adf_distr=r["adf"], sadf_distr=r["sadf"], gsadf_distr=r["gsadf"],
         method="Wild Bootstrap", minw=r["minw"], n=r["n"], iter=nboot,
     )
+
+
+# -- Wild bootstrap, Phillips & Shi (2020) variant ---------------------------
+
+
+def _wb_dgp_ps(
+    y: np.ndarray, fit: AdfRes, adflag: int, rng: np.random.Generator, tb: int | None
+) -> np.ndarray:
+    """Port of R's radf_wb_dgp_ps(): resamples the residuals of adf_res()'s
+    null AR(adflag) fit to build one bootstrap replicate of y.
+
+    Faithful port note: for adflag == 0, R's loop `for (i in
+    (adflag+1):(nr-1))` never assigns `dyb[nr]` (R is 1-indexed, so the
+    last element of `dyb` is left at its initial 0) -- reproduced here
+    rather than "fixed", since it's exuber's actual bootstrap DGP.
+    """
+    beta, eps = fit.beta, fit.res
+    dy = np.diff(y)
+    nr = len(dy) if tb is None else tb - 1
+
+    r_n = rng.integers(0, nr - adflag, size=nr - adflag)
+    wn = rng.normal(size=nr)
+
+    dyb = np.zeros(nr)
+    if adflag > 0:
+        dyb[:adflag] = dy[:adflag]
+        x = np.zeros((nr - 1, adflag))
+        for i in range(adflag, nr - 1):
+            for k in range(1, adflag + 1):
+                x[i, k - 1] = dyb[i - k]
+            dyb[i] = x[i, :] @ beta[1:] + wn[i - adflag] * eps[r_n[i - adflag]]
+    else:
+        for i in range(0, nr - 1):
+            dyb[i] = wn[i] * eps[r_n[i]]
+
+    return np.cumsum(np.concatenate(([y[0]], dyb)))
+
+
+def _radf_wb_ps(
+    data,
+    minw: int | None = None,
+    nboot: int = 500,
+    adflag: int = 0,
+    type: str = "fixed",
+    tb: int | None = None,
+    seed: int | None = None,
+) -> dict:
+    from . import _core  # lazy: see radf.py's radf() for why
+
+    y, columns = _to_2d_array(data)
+    nr_full, nc = y.shape
+    minw = minw if minw is not None else psy_minw(nr_full)
+    nr = tb if tb is not None else nr_full
+    pointer = nr - minw
+    rng = np.random.default_rng(seed)
+
+    adf = np.empty((nboot, nc))
+    sadf = np.empty((nboot, nc))
+    gsadf = np.empty((nboot, nc))
+    badf = np.empty((pointer, nboot, nc))
+    bsadf = np.empty((pointer, nboot, nc))
+
+    for j in range(nc):
+        # adf_res() is deterministic in y[:, j] -- fit once, reuse across
+        # bootstrap draws (R recomputes it every draw for the same result).
+        fit = adf_res(y[:, j], adflag=adflag, type=type)
+        for i in range(nboot):
+            ystar = _wb_dgp_ps(y[:, j], fit, adflag, rng, tb)
+            yxmat = unroot(ystar)
+            result = _core.radf_stat(yxmat, minw, 0)
+            badf[:, i, j] = result[:pointer]
+            adf[i, j] = result[pointer]
+            sadf[i, j] = result[pointer + 1]
+            gsadf[i, j] = result[pointer + 2]
+            bsadf[:, i, j] = result[pointer + 3 :]
+
+    return {
+        "adf": adf, "sadf": sadf, "gsadf": gsadf, "badf": badf, "bsadf": bsadf,
+        "minw": minw, "n": nr_full, "pointer": pointer, "series_names": columns,
+    }
+
+
+def radf_wb_ps_cv(
+    data,
+    minw: int | None = None,
+    nboot: int = 500,
+    adflag: int = 0,
+    type: str = "fixed",
+    tb: int | None = None,
+    seed: int | None = None,
+) -> RadfCv:
+    """Wild bootstrap critical values, Phillips & Shi (2020) variant: fit a
+    null AR model, resample its residuals. Unlike radf_wb_cv()'s HLST
+    multiplier bootstrap, this supports a training-window boundary `tb`
+    (what monitor() would use it for)."""
+    r = _radf_wb_ps(data, minw, nboot, adflag, type, tb, seed)
+
+    adf_cv = np.quantile(r["adf"], PCNT, axis=0).T
+    sadf_cv = np.quantile(r["sadf"], PCNT, axis=0).T
+    gsadf_cv = np.quantile(r["gsadf"], PCNT, axis=0).T
+    badf_cv = np.moveaxis(np.quantile(r["badf"], PCNT, axis=1), 0, 1)
+    bsadf_cv = np.moveaxis(np.quantile(r["bsadf"], PCNT, axis=1), 0, 1)
+
+    if tb is not None:
+        # Training-window mode: badf/bsadf cv collapse to the (constant)
+        # adf/gsadf cv repeated over the full-sample pointer length.
+        full_pointer = r["n"] - r["minw"]
+        nc = sadf_cv.shape[0]
+        badf_cv = np.empty((full_pointer, 3, nc))
+        bsadf_cv = np.empty((full_pointer, 3, nc))
+        for i in range(nc):
+            badf_cv[:, :, i] = sadf_cv[i]
+            bsadf_cv[:, :, i] = gsadf_cv[i]
+
+    return RadfCv(
+        adf_cv=adf_cv, sadf_cv=sadf_cv, gsadf_cv=gsadf_cv, badf_cv=badf_cv, bsadf_cv=bsadf_cv,
+        method="Wild Bootstrap (Phillips-Shi)", minw=r["minw"], n=r["n"], iter=nboot,
+        series_names=r["series_names"],
+    )
+
+
+def radf_wb_ps_distr(
+    data,
+    minw: int | None = None,
+    nboot: int = 500,
+    adflag: int = 0,
+    type: str = "fixed",
+    tb: int | None = None,
+    seed: int | None = None,
+) -> RadfDistr:
+    """Distribution of the ADF/SADF/GSADF statistics under the Phillips &
+    Shi (2020) wild bootstrap variant."""
+    r = _radf_wb_ps(data, minw, nboot, adflag, type, tb, seed)
+    return RadfDistr(
+        adf_distr=r["adf"], sadf_distr=r["sadf"], gsadf_distr=r["gsadf"],
+        method="Wild Bootstrap (Phillips-Shi)", minw=r["minw"], n=r["n"], iter=nboot,
+    )
+
+
