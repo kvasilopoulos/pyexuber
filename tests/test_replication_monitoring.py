@@ -25,6 +25,9 @@ pytestmark = pytest.mark.skipif(
         "radf_monitor_kurozumi_boundary_validation.py",
         "radf_monitor_fluc_boundary_validation.py",
         "radf_monitor_gsadf_s0_validation.py",
+        "radf_cusum_validation.py",
+        "radf_cusum_finite_boundary_validation.py",
+        "radf_cusumv_kernel_validation.py",
     ],
 )
 def test_replication_script_runs_clean(script):
