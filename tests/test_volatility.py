@@ -1,16 +1,16 @@
 """Tests for exuber.volatility -- the volatility-robust bubble tests.
-Ports of exuber's R/radf_tt.R, R/radf_sign.R, R/radf_kp.R and R/radf_sbz.R
-so far; see docs/volatility-robustness.md (root repo) for the source
-papers. SSU lands here in a follow-up commit.
+Ports of exuber's R/radf_tt.R, R/radf_sign.R, R/radf_kp.R, R/radf_sbz.R
+and R/ssu_test.R; see docs/volatility-robustness.md (root repo) for the
+source papers.
 
 Formula-exact reference numbers below were produced by feeding the SAME
 deterministic input series to both R and this port (no RNG involved at
 the formula level, so results agree to numpy/R floating-point precision,
 not just approximately) -- see
 docs/replication/volatility-robustness/radf_tt_validation.py,
-sign_based_finite_T_crosscheck.py, radf_kp_validation.py and
-radf_sbz_validation.py (root repo) for the fuller narrative version and
-the exact R commands used.
+sign_based_finite_T_crosscheck.py, radf_kp_validation.py,
+radf_sbz_validation.py and radf_ssu_validation.py (root repo) for the
+fuller narrative version and the exact R commands used.
 
 radf_kp()'s and radf_sbz_union()'s own tests need exuber._core (the
 compiled extension) since they call radf()/the C++ engine internally --
@@ -38,6 +38,8 @@ from exuber.volatility import (
     radf_tt_cv,
     sign_demean_transform,
     sign_transform,
+    ssu_q,
+    ssu_test,
     variance_profile,
     wls_dfstat_grid,
 )
@@ -278,3 +280,105 @@ def test_radf_sbz_union_runs_and_orders_correctly():
     assert 0.0 <= res.p_supDF[0] <= 1.0
     assert 0.0 <= res.p_supBZ[0] <= 1.0
     assert 0.0 <= res.p_U[0] <= 1.0
+
+
+R_SSU_STAT_LAST3 = np.array([-1.4294408532, -1.4956945921, -1.5827171047])
+R_SSU_SADF = 0.8058323864
+
+
+def test_ssu_q_lookup():
+    assert ssu_q(90) == pytest.approx(2.90)
+    assert ssu_q(95) == pytest.approx(3.30)
+    assert ssu_q(99) == pytest.approx(4.20)
+    with pytest.raises(ValueError):
+        ssu_q(80)
+
+
+def test_ssu_test_matches_r():
+    res = ssu_test(Y_VEC, minw=MINW, sig_lvl=95)
+    np.testing.assert_allclose(res.stat[-3:, 0], R_SSU_STAT_LAST3, atol=1e-4)
+    assert res.sadf[0] == pytest.approx(R_SSU_SADF, abs=1e-4)
+    assert res.crit == pytest.approx(3.30)
+    assert bool(res.detected[0]) == (R_SSU_SADF > 3.30)
+
+
+def test_ssu_test_default_minw_matches_psy_minw():
+    y = np.cumsum(np.random.default_rng(1).normal(size=120))
+    res = ssu_test(y)
+    assert res.minw == psy_minw(120)
+
+
+def test_ssu_test_formula_matches_brute_force():
+    """ssu_stat_path()'s bilinear cross-moment expansion vs. a brute-force
+    per-window computation (two separately fitted OLS regressions plus a
+    manual residual cross-moment), the same check test-ssu.R's own R
+    validation uses."""
+    from exuber.volatility import ssu_prefix_sums, ssu_stat_path
+
+    rng = np.random.default_rng(2)
+    n = 150
+    y = np.cumsum(rng.normal(size=n))
+    ps = ssu_prefix_sums(y)
+
+    def brute_force_stat(hi: int) -> float:
+        win = np.arange(hi)
+        x1 = y[win]
+        d1 = y[win + 1] - x1
+        x2 = x1**2
+        d2 = d1**2
+
+        A1 = np.column_stack([np.ones(hi), x1])
+        beta1, *_ = np.linalg.lstsq(A1, d1, rcond=None)
+        eps_hat = d1 - A1 @ beta1
+
+        A2 = np.column_stack([np.ones(hi), x2])
+        beta2, *_ = np.linalg.lstsq(A2, d2, rcond=None)
+        eta_hat = d2 - A2 @ beta2
+
+        sigma2_eps = np.sum(eps_hat**2) / (hi - 2)
+        sigma2_eta = np.sum(eta_hat**2) / (hi - 2)
+        sigma2_epseta = np.sum(eps_hat * eta_hat) / (hi - 1)
+        sigma_eps = np.sqrt(sigma2_eps)
+        sigma_eta = np.sqrt(sigma2_eta)
+        psi_hat = sigma2_epseta / (sigma_eps * sigma_eta)
+
+        omega_hat = beta2[1]
+        sxx2_c = np.sum((x2 - x2.mean()) ** 2)
+        t_omega = omega_hat / np.sqrt(sigma2_eta / sxx2_c)
+
+        num_corr = np.sum((x2 - x2.mean()) * d1)
+        den_corr = np.sqrt(sxx2_c)
+        correction = (psi_hat / sigma_eps) * num_corr / den_corr
+        return (t_omega - correction) / np.sqrt(1 - psi_hat**2)
+
+    for hi in (50, 80, 120, 149):
+        fast = ssu_stat_path(ps, np.array([hi]))[0]
+        manual = brute_force_stat(hi)
+        assert fast == pytest.approx(manual, abs=1e-6)
+
+
+def test_ssu_test_power_on_stochastic_coefficient_dgp():
+    """SSU should have decent detection power on the alternative it's
+    actually designed for (stochastic, not deterministic, explosive
+    coefficient) -- Kurozumi & Nishi's own eq. 2 style DGP."""
+
+    def make_stochastic_bubble(rng: np.random.Generator, n: int, te_frac: float = 0.5,
+                                c1: float = 3.0, a: float = 4.0) -> np.ndarray:
+        y = np.empty(n)
+        y[0] = rng.normal()
+        te = round(te_frac * n)
+        for t in range(1, n):
+            if t < te:
+                y[t] = y[t - 1] + rng.normal()
+            else:
+                rho_t = 1 + c1 / n + a * rng.normal() / np.sqrt(n)
+                y[t] = rho_t * y[t - 1] + rng.normal()
+        return y
+
+    rng = np.random.default_rng(2)
+    n, nrep = 200, 30
+    detections = sum(
+        ssu_test(make_stochastic_bubble(rng, n), sig_lvl=95).detected[0] for _ in range(nrep)
+    )
+    power = detections / nrep
+    assert power > 0.4  # KN's own MC reports ~85%; a loose lower bound for a small smoke test
