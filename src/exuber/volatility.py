@@ -1,7 +1,7 @@
-"""Volatility-robust bubble tests. Ports of exuber's R/radf_tt.R and
-R/radf_sign.R so far -- see docs/volatility-robustness.md (root repo)
-for the formulas, papers and independent validation this ports. More
-volatility-robust tests (kernel-purge, SBZ, SSU) land here in follow-up
+"""Volatility-robust bubble tests. Ports of exuber's R/radf_tt.R,
+R/radf_sign.R and R/radf_kp.R so far -- see docs/volatility-robustness.md
+(root repo) for the formulas, papers and independent validation this
+ports. More volatility-robust tests (SBZ, SSU) land here in follow-up
 commits.
 
 RNG note: uses numpy's Generator, not R's RNG -- see sim.py's module
@@ -307,3 +307,98 @@ def radf_sign_dm_cv(
     return _mc_cv_grid(
         n, minw, nrep, seed, sign_demean_transform, method="Sign-Based MC (demeaned)"
     )
+
+
+# -- Kernel spot-volatility estimator (shared: kernel-purge + SBZ) ----------
+
+
+def nw_spot_vol(
+    e: np.ndarray, kernel: str = "gaussian", h: float | None = None
+) -> tuple[np.ndarray, float]:
+    """Nadaraya-Watson kernel smoother of a squared innovation series `e`,
+    with leave-one-out cross-validated bandwidth over [1/(2T), 1/6]
+    (Harvey, Leybourne & Zu 2019, footnote 2) when `h` is not given.
+    Returns (sigma2, h), sigma2 one value per t = 1..T (t/T grid)."""
+    if kernel not in ("gaussian", "uniform"):
+        raise ValueError("kernel must be 'gaussian' or 'uniform'")
+    e = np.asarray(e, dtype=float)
+    tn = len(e)
+    s = np.arange(2, tn + 1) / tn  # i/T for i = 2..T
+    e2 = e[1:] ** 2  # e_i^2 for i = 2..T, aligned with s
+    t_grid = np.arange(1, tn + 1) / tn
+
+    def kern(u: np.ndarray) -> np.ndarray:
+        if kernel == "gaussian":
+            return np.exp(-0.5 * u**2) / np.sqrt(2 * np.pi)
+        return (np.abs(u) <= 1).astype(float) / 2
+
+    def spot_vol_at(hh: float, drop_self: bool = False) -> np.ndarray:
+        out = np.empty(len(t_grid))
+        for j, tg in enumerate(t_grid):
+            w = kern((s - tg) / hh)
+            if drop_self:
+                self_idx = np.abs(s - tg) < np.sqrt(np.finfo(float).eps)
+                w = np.where(self_idx, 0.0, w)
+            wsum = w.sum()
+            out[j] = np.mean(e2) if wsum <= 0 else np.sum(w * e2) / wsum
+        return out
+
+    if h is None:
+        hl = 1 / (2 * tn)
+        hu = 1 / 6
+        grid = np.exp(np.linspace(np.log(hl), np.log(hu), 10))
+        s_to_tgrid_idx = np.searchsorted(t_grid, s)  # s values sit exactly on t_grid
+        cv = np.empty(len(grid))
+        for k, hh in enumerate(grid):
+            s2_loo = spot_vol_at(hh, drop_self=True)
+            cv[k] = np.mean((e2 - s2_loo[s_to_tgrid_idx]) ** 2)
+        h = float(grid[np.argmin(cv)])
+
+    sigma2 = spot_vol_at(h, drop_self=False)
+    return sigma2, h
+
+
+def kernel_spot_vol(
+    y: np.ndarray, kernel: str = "gaussian", h: float | None = None
+) -> tuple[np.ndarray, float]:
+    """Nonparametric spot-volatility estimator, eq. (6) of Harvey,
+    Leybourne & Zu (2019): `nw_spot_vol()` applied to the raw series'
+    first differences."""
+    return nw_spot_vol(np.diff(np.asarray(y, dtype=float)), kernel=kernel, h=h)
+
+
+# -- Kernel-purge test (Harvey, Leybourne, Taylor & Zu 2024) -----------------
+
+
+def kernel_purge(y: np.ndarray, kernel: str = "gaussian", h: float | None = None) -> np.ndarray:
+    """Kernel-purged transform (eq. 4-5): x_t = cumsum(Delta y_t /
+    sigma_hat_t). Feed the result to `radf()` -- the purged statistic's
+    null distribution is proven identical to the standard homoskedastic
+    GSADF null (Theorem 1/Remark 3.2 of Harvey, Leybourne, Taylor & Zu
+    2024), so no new critical-value machinery is needed."""
+    y = np.asarray(y, dtype=float)
+    tn = len(y) - 1
+    h = h if h is not None else 0.1 * tn ** (-0.25)
+    sigma2, _ = kernel_spot_vol(y, kernel=kernel, h=h)
+    return np.cumsum(np.diff(y) / np.sqrt(sigma2))
+
+
+def radf_kp(
+    data, minw: int | None = None, kernel: str = "gaussian", h: float | None = None
+) -> RadfResult:
+    """Kernel-purged heteroskedasticity-robust PSY test, Harvey, Leybourne,
+    Taylor & Zu (2024): "purges" unconditional heteroskedasticity by
+    cumulating the series' first differences after dividing each by a
+    kernel spot-volatility estimate, then runs the ordinary
+    (with-intercept) `radf()` on the purged series. `radf_mc_cv()` applies
+    directly to the result (see module docstring / Details above)."""
+    from exuber.radf import radf
+
+    x, columns = _to_2d_array(data)
+    nc = x.shape[1]
+    purged = np.column_stack([kernel_purge(x[:, j], kernel=kernel, h=h) for j in range(nc)])
+    if columns is not None:
+        result = radf(purged, minw=minw)
+        result.series_names = columns
+        return result
+    return radf(purged, minw=minw)
