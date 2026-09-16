@@ -1,22 +1,33 @@
 """Tests for exuber.volatility -- the volatility-robust bubble tests.
-Port of exuber's R/radf_tt.R (STADF/GSTADF, Kurozumi, Skrobotov & Tsarev
-2024) so far; see docs/volatility-robustness.md (root repo) for the
-source papers. More volatility-robust tests land here in follow-up
-commits.
+Ports of exuber's R/radf_tt.R and R/radf_sign.R so far; see
+docs/volatility-robustness.md (root repo) for the source papers. More
+volatility-robust tests land here in follow-up commits.
 
 Formula-exact reference numbers below were produced by feeding the SAME
 deterministic input series to both R and this port (no RNG involved at
 the formula level, so results agree to numpy/R floating-point precision,
 not just approximately) -- see
-docs/replication/volatility-robustness/radf_tt_validation.py (root repo)
-for the fuller narrative version and the exact R commands used.
+docs/replication/volatility-robustness/radf_tt_validation.py and
+sign_based_finite_T_crosscheck.py (root repo) for the fuller narrative
+version and the exact R commands used.
 """
 
 import numpy as np
 import pytest
 
 from exuber.radf import psy_minw
-from exuber.volatility import gls_dfstat_grid, radf_tt, radf_tt_cv, variance_profile
+from exuber.volatility import (
+    gls_dfstat_grid,
+    radf_sign,
+    radf_sign_cv,
+    radf_sign_dm,
+    radf_sign_dm_cv,
+    radf_tt,
+    radf_tt_cv,
+    sign_demean_transform,
+    sign_transform,
+    variance_profile,
+)
 
 # set.seed(7); y <- round(cumsum(rnorm(40)), 8)
 Y_VEC = np.array(
@@ -71,3 +82,71 @@ def test_radf_tt_cv_badf_cv_identity():
 def test_radf_tt_default_minw_uses_psy_minw():
     res = radf_tt(Y_VEC)
     assert res.minw == psy_minw(len(Y_VEC))
+
+
+def test_sign_transform_shape():
+    y = np.cumsum(np.random.default_rng(0).normal(size=30))
+    ct = sign_transform(y)
+    assert len(ct) == len(y)
+    assert ct[0] == 0.0
+
+
+def test_sign_demean_transform_matches_brute_force():
+    rng = np.random.default_rng(1)
+    y = np.cumsum(rng.normal(size=50))
+    dy = np.diff(y)
+    s = np.sign(dy)
+    n = len(s)
+    brute = [0.0]
+    for t in range(1, n + 1):
+        brute.append(sum(s[i - 1] - np.mean(s[:i]) for i in range(1, t + 1)))
+    np.testing.assert_allclose(sign_demean_transform(y), brute, atol=1e-10)
+
+
+def test_radf_sign_matches_r():
+    res = radf_sign(Y_VEC, minw=MINW)
+    assert res.sadf[0] == pytest.approx(0.6739661980, abs=1e-6)
+    assert res.gsadf[0] == pytest.approx(2.0040132787, abs=1e-6)
+
+
+def test_radf_sign_dm_matches_r():
+    res = radf_sign_dm(Y_VEC, minw=MINW)
+    assert res.sadf[0] == pytest.approx(3.6784167432, abs=1e-6)
+    assert res.gsadf[0] == pytest.approx(3.6784167432, abs=1e-6)
+
+
+def test_radf_sign_cv_against_published_table1():
+    """Pivotal (RNG-agnostic) target -- Harvey, Leybourne & Zu (2020)'s
+    Table 1 finite-T=200 row at minw/n = 0.1. Deliberately the T=200 row,
+    not the T=Inf asymptotic one: the paper's own text documents sPSY's
+    finite-sample critical values converging to the asymptotic limit much
+    more slowly than sPWY's, so an exact finite-T match avoids that
+    convergence ambiguity (see sign_based_finite_T_crosscheck.R/.py)."""
+    cv = radf_sign_cv(n=200, minw=20, nrep=800, seed=1)
+    published_sadf = np.array([2.405, 2.735, 3.434])
+    published_gsadf = np.array([3.469, 3.901, 4.957])
+    assert np.all(np.abs(cv.sadf_cv - published_sadf) < 0.5)
+    assert np.all(np.abs(cv.gsadf_cv - published_gsadf) < 0.7)
+
+
+def test_radf_sign_exact_heteroskedasticity_invariance():
+    """The paper's central claim: sadf/gsadf are exactly invariant to
+    (even wildly time-varying) volatility, since sign() strips magnitude."""
+    rng = np.random.default_rng(7)
+    n = 100
+    raw_dy = rng.normal(size=n - 1)
+    y_homo = np.cumsum(raw_dy)
+    vol_pattern = np.concatenate([np.full(30, 0.1), np.full(40, 10.0), np.full(n - 71, 1.0)])
+    y_hetero = np.cumsum(raw_dy * vol_pattern)
+
+    r_homo = radf_sign(y_homo, minw=15)
+    r_hetero = radf_sign(y_hetero, minw=15)
+    np.testing.assert_allclose(r_homo.sadf, r_hetero.sadf)
+    np.testing.assert_allclose(r_homo.gsadf, r_hetero.gsadf)
+
+
+def test_radf_sign_dm_cv_shape_and_monotonic():
+    cv = radf_sign_dm_cv(n=60, minw=15, nrep=100, seed=1)
+    assert cv.sadf_cv.shape == (3,)
+    assert np.all(np.diff(cv.sadf_cv) >= 0)
+    np.testing.assert_allclose(cv.badf_cv[-1], cv.adf_cv)
