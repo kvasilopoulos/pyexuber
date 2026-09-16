@@ -27,3 +27,7 @@ def _run_script(name: str) -> None:
 
 def test_rootstamp_validation_script():
     _run_script("rootstamp_validation.py")
+
+
+def test_radf_pdc_validation_script():
+    _run_script("radf_pdc_validation.py")
