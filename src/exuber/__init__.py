@@ -17,6 +17,8 @@ Scope so far:
     detection via PCA + PSY): multivariate.py.
   - cobubble_test() (Evripidou, Harvey, Leybourne & Sollis 2022
     co-explosive behaviour test): multivariate.py.
+  - contagion_reg() (Greenaway-McGrevy & Phillips 2016 bubble contagion
+    regression, minimum-viable subset): multivariate.py.
 
 Not yet ported (deferred, not silently dropped):
   - radf_wb_cv2/distr2 (Phillips & Shi PS wild bootstrap variant): needs
@@ -37,9 +39,11 @@ from exuber.cv import RadfCv, RadfDistr, radf_mc_cv, radf_mc_distr, radf_wb_cv, 
 from exuber.datestamp import Episode, datestamp
 from exuber.multivariate import (
     CobubbleTestResult,
+    ContagionRegResult,
     RadfCommonCv,
     RadfCommonResult,
     cobubble_test,
+    contagion_reg,
     radf_common,
     radf_common_cv,
 )
@@ -71,6 +75,8 @@ __all__ = [
     "RadfCommonCv",
     "cobubble_test",
     "CobubbleTestResult",
+    "contagion_reg",
+    "ContagionRegResult",
     "sim_psy1",
     "sim_psy2",
     "sim_ps1",
