@@ -28,6 +28,8 @@ pytestmark = pytest.mark.skipif(
         "radf_cusum_validation.py",
         "radf_cusum_finite_boundary_validation.py",
         "radf_cusumv_kernel_validation.py",
+        "radf_lbi_validation.py",
+        "radf_lbi_monitor_validation.py",
     ],
 )
 def test_replication_script_runs_clean(script):
