@@ -11,7 +11,12 @@ Scope so far:
     around the same core statistic). lag_select()/adf_res()
     (exuber._lagselect, internal) are the deterministic exception,
     verified bit-for-bit against R.
-  - sim_*: bubble DGP simulators, pure Python + numpy.
+  - sim_*: bubble DGP simulators, pure Python + numpy. The original seven
+    (sim_psy1/2, sim_ps1/2, sim_blan, sim_evans, sim_div) plus the
+    2026-08 innovation-generator extensions (sim_innov, sim_vol_garch,
+    sim_vol_break, sim_vol_cir, sim_vol_sv, sim_fi) and optional axes on
+    sim_psy1 (e/shifts/coef_noise/coef_a) and sim_blan
+    (type="rotermann_wilfling").
   - datestamp(): episode date-stamping (Start/Peak/End/Duration/Ongoing),
     with one simplification -- see datestamp.py's module docstring.
   - radf_crit(): precomputed Monte Carlo critical values from the shared
@@ -24,9 +29,10 @@ Scope so far:
     imported.
 
 Not yet ported (deferred, not silently dropped):
-  - the 2026-08 sim_*() DGP extensions (sim_coexplosive, sim_common,
-    sim_falsebubble, sim_fi, sim_mar, sim_msbubble, sim_tree, sim_vol_*,
-    sim_dgp1/2, sim_innov, and optional axes on sim_psy1/sim_blan).
+  - the remaining 2026-08 sim_*() DGP extensions: sim_coexplosive,
+    sim_common, sim_falsebubble, sim_mar, sim_msbubble, sim_tree,
+    sim_dgp1/2 -- larger, more involved DGPs than the innovation
+    generators above, left for later.
   - tidy()/augment() for radf_cv/radf_distr, tidy_join()/augment_join(),
     summary(), diagnostics().
 
@@ -58,7 +64,21 @@ from exuber.cv import (
 )
 from exuber.datestamp import Episode, datestamp
 from exuber.radf import RadfResult, psy_ds, psy_minw, radf
-from exuber.sim import sim_blan, sim_div, sim_evans, sim_ps1, sim_ps2, sim_psy1, sim_psy2
+from exuber.sim import (
+    sim_blan,
+    sim_div,
+    sim_evans,
+    sim_fi,
+    sim_innov,
+    sim_ps1,
+    sim_ps2,
+    sim_psy1,
+    sim_psy2,
+    sim_vol_break,
+    sim_vol_cir,
+    sim_vol_garch,
+    sim_vol_sv,
+)
 from exuber.tidy import augment, tidy
 
 try:
@@ -93,6 +113,12 @@ __all__ = [
     "sim_blan",
     "sim_evans",
     "sim_div",
+    "sim_innov",
+    "sim_vol_garch",
+    "sim_vol_break",
+    "sim_vol_cir",
+    "sim_vol_sv",
+    "sim_fi",
     "tidy",
     "augment",
 ]

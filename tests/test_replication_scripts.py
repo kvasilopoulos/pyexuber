@@ -55,3 +55,21 @@ def test_tidy_validation_script():
     m.check_augment_long()
     m.check_augment_panel()
     m.check_augment_trunc_false()
+
+
+def test_sim_vol_innovations_validation_script():
+    m = _load("simulation-dgps", "sim_vol_innovations_validation")
+    m.check_sim_vol_break()
+    m.check_sim_vol_garch()
+    m.check_sim_vol_cir()
+    m.check_sim_vol_sv()
+    m.check_sim_innov_normal()
+    m.check_sim_innov_t_skew_t_constants()
+    m.check_sim_fi_psi_and_convolution()
+
+
+def test_sim_psy1_axes_and_blan_rw_validation_script():
+    m = _load("simulation-dgps", "sim_psy1_axes_and_blan_rw_validation")
+    m.check_sim_psy1_e()
+    m.check_sim_psy1_shifts()
+    m.check_sim_blan_rotermann_wilfling()
