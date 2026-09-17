@@ -35,3 +35,7 @@ def test_radf_pdc_validation_script():
 
 def test_radf_recovery_validation_script():
     _run_script("radf_recovery_validation.py")
+
+
+def test_radf_hls_validation_script():
+    _run_script("radf_hls_validation.py")
