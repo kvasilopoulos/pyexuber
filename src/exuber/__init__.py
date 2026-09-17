@@ -11,31 +11,43 @@ Scope so far:
     around the same core statistic). lag_select()/adf_res()
     (exuber._lagselect, internal) are the deterministic exception,
     verified bit-for-bit against R.
-  - sim_*: bubble DGP simulators, pure Python + numpy. The original seven
-    (sim_psy1/2, sim_ps1/2, sim_blan, sim_evans, sim_div) plus the
-    2026-08 innovation-generator extensions (sim_innov, sim_vol_garch,
-    sim_vol_break, sim_vol_cir, sim_vol_sv, sim_fi) and optional axes on
-    sim_psy1 (e/shifts/coef_noise/coef_a) and sim_blan
-    (type="rotermann_wilfling").
+  - sim_*: bubble DGP simulators, pure Python + numpy, in sim.py. Not
+    re-exported here (see "Not re-exported" below) -- import directly,
+    e.g. `from exuber.sim import sim_psy1`.
   - datestamp(): episode date-stamping (Start/Peak/End/Duration/Ongoing),
     with one simplification -- see datestamp.py's module docstring.
   - radf_crit(): precomputed Monte Carlo critical values from the shared
     store exuber's R package also reads (crit.py), so a typical analysis
     needn't simulate its own.
-  - radf_common/radf_common_cv (Chen, Phillips & Shi 2023 common-bubble
-    detection via PCA + PSY): multivariate.py.
+  - radf_common()/radf_common_cv() (Chen, Phillips & Shi 2023 common-
+    bubble detection via PCA + PSY): radf_common.py.
   - cobubble_test() (Evripidou, Harvey, Leybourne & Sollis 2022
-    co-explosive behaviour test): multivariate.py.
+    co-explosive behaviour test): cobubble_test.py.
   - contagion_reg() (Greenaway-McGrevy & Phillips 2016 bubble contagion
-    regression, minimum-viable subset): multivariate.py.
-  - monitor(), monitor_cusum(), lbi_test()/monitor_lbi(), quantile_test()/
-    monitor_quantile(): real-time monitoring and quantile-based detection
-    (monitor.py) -- see that module's own docstring for exactly which
-    boundary variants of each are ported vs. deferred.
-  - rootstamp()/rootstamp_episodes(), dating_pdc(), radf_recovery()/
-    radf_recovery_cv(), dating_hls(), dating_hlw(), dating_knp(): dating
-    and root inference (dating.py) -- see its module docstring for
-    scope/caveats.
+    regression, minimum-viable subset): contagion_reg.py.
+  - monitor() (Phillips & Shi 2020 training/monitoring split, Kurozumi
+    2020 / Homm & Breitung 2012 boundaries): monitor.py.
+  - monitor_cusum() (Homm & Breitung 2012 CUSUM real-time monitoring):
+    monitor_cusum.py.
+  - lbi_test()/monitor_lbi() (Breitung & Diegel 2025 locally best
+    invariant test): lbi_test.py.
+  - quantile_test() (Wu, Shi & Wu 2025 quantile-regression global test):
+    quantile_test.py.
+  - monitor_quantile() (Wu, Shi & Wu 2025 QPWY recursive quantile
+    monitoring): monitor_quantile.py. See these modules' own docstrings
+    for exactly which boundary variants of each are ported vs. deferred.
+  - rootstamp()/rootstamp_episodes() (Guo, Sun & Wang 2019 / Phillips-
+    Magdalinos 2007 root inference): rootstamp.py.
+  - dating_pdc() (Pang, Du & Chong 2021 / Kurozumi & Skrobotov 2023
+    sequential sample-splitting dating): dating_pdc.py.
+  - radf_recovery()/radf_recovery_cv() (Phillips & Shi 2014 reverse-
+    regression recovery dating): radf_recovery.py.
+  - dating_hls() (Harvey, Leybourne & Sollis 2017 SSR+BIC dating):
+    dating_hls.py.
+  - dating_hlw() (Harvey, Leybourne & Whitehouse 2020 multi-bubble
+    wrapper around dating_hls()): dating_hlw.py.
+  - dating_knp() (Kejriwal, Nguyen & Perron 2025 bias-corrected single-
+    bubble dating): dating_knp.py.
   - tidy()/augment(): DataFrame-producing accessors for a RadfResult
     (radf_obj's methods only, not radf_cv/radf_distr's, and not
     tidy_join/augment_join/summary/diagnostics -- see tidy.py's module
@@ -46,8 +58,12 @@ Only the callable functions above are exported here. Each one's return
 type (RadfCv, DatingHlsResult, MonitorResult, ...) is a plain dataclass
 defined next to it and importable from its own submodule when you need
 it for a type hint or isinstance check, e.g. `from exuber.cv import
-RadfCv` or `from exuber.dating import DatingHlsResult` -- not
+RadfCv` or `from exuber.dating_hls import DatingHlsResult` -- not
 re-exported here, since most usage never needs to name the type.
+
+Not re-exported here: exuber.sim's sim_*() DGP simulators. They remain
+fully usable via `from exuber.sim import sim_psy1` etc., just not part
+of the top-level `exuber` namespace.
 
 Not yet ported (deferred, not silently dropped):
   - the remaining 2026-08 sim_*() DGP extensions: sim_coexplosive,
@@ -70,6 +86,8 @@ fixed upstream (initmat[j, (lag + 1):1]) -- see cv.py's `_radf_sb`.
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _version
 
+from exuber.cobubble_test import cobubble_test
+from exuber.contagion_reg import contagion_reg
 from exuber.crit import radf_crit
 from exuber.cv import (
     radf_mc_cv,
@@ -82,46 +100,19 @@ from exuber.cv import (
     radf_wb_ps_distr,
 )
 from exuber.datestamp import datestamp
-from exuber.dating import (
-    dating_hls,
-    dating_hlw,
-    dating_knp,
-    dating_pdc,
-    radf_recovery,
-    radf_recovery_cv,
-    rootstamp,
-    rootstamp_episodes,
-)
-from exuber.monitor import (
-    lbi_test,
-    monitor,
-    monitor_cusum,
-    monitor_lbi,
-    monitor_quantile,
-    quantile_test,
-)
-from exuber.multivariate import (
-    cobubble_test,
-    contagion_reg,
-    radf_common,
-    radf_common_cv,
-)
+from exuber.dating_hls import dating_hls
+from exuber.dating_hlw import dating_hlw
+from exuber.dating_knp import dating_knp
+from exuber.dating_pdc import dating_pdc
+from exuber.lbi_test import lbi_test, monitor_lbi
+from exuber.monitor import monitor
+from exuber.monitor_cusum import monitor_cusum
+from exuber.monitor_quantile import monitor_quantile
+from exuber.quantile_test import quantile_test
 from exuber.radf import psy_ds, psy_minw, radf
-from exuber.sim import (
-    sim_blan,
-    sim_div,
-    sim_evans,
-    sim_fi,
-    sim_innov,
-    sim_ps1,
-    sim_ps2,
-    sim_psy1,
-    sim_psy2,
-    sim_vol_break,
-    sim_vol_cir,
-    sim_vol_garch,
-    sim_vol_sv,
-)
+from exuber.radf_common import radf_common, radf_common_cv
+from exuber.radf_recovery import radf_recovery, radf_recovery_cv
+from exuber.rootstamp import rootstamp, rootstamp_episodes
 from exuber.tidy import augment, tidy
 
 try:
@@ -147,13 +138,6 @@ __all__ = [
     "radf_common_cv",
     "cobubble_test",
     "contagion_reg",
-    "sim_psy1",
-    "sim_psy2",
-    "sim_ps1",
-    "sim_ps2",
-    "sim_blan",
-    "sim_evans",
-    "sim_div",
     "monitor",
     "monitor_cusum",
     "lbi_test",
@@ -168,12 +152,6 @@ __all__ = [
     "dating_hls",
     "dating_hlw",
     "dating_knp",
-    "sim_innov",
-    "sim_vol_garch",
-    "sim_vol_break",
-    "sim_vol_cir",
-    "sim_vol_sv",
-    "sim_fi",
     "tidy",
     "augment",
 ]

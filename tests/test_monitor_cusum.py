@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from test_monitor import Y42
 
-from exuber.monitor import _hb_cusum_finite_q, _one_sided_kernel_spot_vol, monitor_cusum
+from exuber.monitor_cusum import _hb_cusum_finite_q, _one_sided_kernel_spot_vol, monitor_cusum
 
 
 def test_hb_cusum_finite_table_lookup():

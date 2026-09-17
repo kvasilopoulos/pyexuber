@@ -1,14 +1,14 @@
-"""Tests for exuber.monitor.quantile_test(). The point statistics
+"""Tests for exuber.quantile_test.quantile_test(). The point statistics
 (tstat, tau, delta, and the internal helpers) are deterministic and
 cross-checked bit-for-bit against R; the simulated critical value (`crit`)
-uses numpy's RNG (see monitor.py's module docstring) so only its shape/
-sanity is checked, not an exact match."""
+uses numpy's RNG (see quantile_test.py's module docstring) so only its
+shape/sanity is checked, not an exact match."""
 
 import numpy as np
 import pytest
 from test_monitor import Y42
 
-from exuber.monitor import (
+from exuber.quantile_test import (
     _bw_nrd0,
     _quantile_adf_tstat,
     _quantile_check_density,
