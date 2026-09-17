@@ -42,6 +42,13 @@ Scope so far:
     docstring). Needs pandas (`pip install pyexuber[pandas]`), lazily
     imported.
 
+Only the callable functions above are exported here. Each one's return
+type (RadfCv, DatingHlsResult, MonitorResult, ...) is a plain dataclass
+defined next to it and importable from its own submodule when you need
+it for a type hint or isinstance check, e.g. `from exuber.cv import
+RadfCv` or `from exuber.dating import DatingHlsResult` -- not
+re-exported here, since most usage never needs to name the type.
+
 Not yet ported (deferred, not silently dropped):
   - the remaining 2026-08 sim_*() DGP extensions: sim_coexplosive,
     sim_common, sim_falsebubble, sim_mar, sim_msbubble, sim_tree,
@@ -65,10 +72,6 @@ from importlib.metadata import version as _version
 
 from exuber.crit import radf_crit
 from exuber.cv import (
-    RadfCv,
-    RadfDistr,
-    RadfSbCv,
-    RadfSbDistr,
     radf_mc_cv,
     radf_mc_distr,
     radf_sb_cv,
@@ -78,17 +81,8 @@ from exuber.cv import (
     radf_wb_ps_cv,
     radf_wb_ps_distr,
 )
-from exuber.datestamp import Episode, datestamp
+from exuber.datestamp import datestamp
 from exuber.dating import (
-    DatingHlsResult,
-    DatingHlwResult,
-    DatingKnpResult,
-    DatingPdcResult,
-    HlwEpisode,
-    RadfRecoveryCv,
-    RadfRecoveryResult,
-    RootstampEpisode,
-    RootstampEst,
     dating_hls,
     dating_hlw,
     dating_knp,
@@ -99,12 +93,6 @@ from exuber.dating import (
     rootstamp_episodes,
 )
 from exuber.monitor import (
-    LbiTestResult,
-    MonitorCusumResult,
-    MonitorLbiResult,
-    MonitorQuantileResult,
-    MonitorResult,
-    QuantileTestResult,
     lbi_test,
     monitor,
     monitor_cusum,
@@ -113,16 +101,12 @@ from exuber.monitor import (
     quantile_test,
 )
 from exuber.multivariate import (
-    CobubbleTestResult,
-    ContagionRegResult,
-    RadfCommonCv,
-    RadfCommonResult,
     cobubble_test,
     contagion_reg,
     radf_common,
     radf_common_cv,
 )
-from exuber.radf import RadfResult, psy_ds, psy_minw, radf
+from exuber.radf import psy_ds, psy_minw, radf
 from exuber.sim import (
     sim_blan,
     sim_div,
@@ -147,7 +131,6 @@ except PackageNotFoundError:  # source tree on sys.path without an install
 
 __all__ = [
     "radf",
-    "RadfResult",
     "psy_minw",
     "psy_ds",
     "radf_crit",
@@ -159,20 +142,11 @@ __all__ = [
     "radf_wb_ps_distr",
     "radf_sb_cv",
     "radf_sb_distr",
-    "RadfCv",
-    "RadfDistr",
-    "RadfSbCv",
-    "RadfSbDistr",
     "datestamp",
-    "Episode",
     "radf_common",
     "radf_common_cv",
-    "RadfCommonResult",
-    "RadfCommonCv",
     "cobubble_test",
-    "CobubbleTestResult",
     "contagion_reg",
-    "ContagionRegResult",
     "sim_psy1",
     "sim_psy2",
     "sim_ps1",
@@ -181,34 +155,19 @@ __all__ = [
     "sim_evans",
     "sim_div",
     "monitor",
-    "MonitorResult",
     "monitor_cusum",
-    "MonitorCusumResult",
     "lbi_test",
-    "LbiTestResult",
     "monitor_lbi",
-    "MonitorLbiResult",
     "quantile_test",
-    "QuantileTestResult",
     "monitor_quantile",
-    "MonitorQuantileResult",
     "rootstamp",
     "rootstamp_episodes",
-    "RootstampEst",
-    "RootstampEpisode",
     "dating_pdc",
-    "DatingPdcResult",
     "radf_recovery",
     "radf_recovery_cv",
-    "RadfRecoveryResult",
-    "RadfRecoveryCv",
     "dating_hls",
-    "DatingHlsResult",
     "dating_hlw",
-    "DatingHlwResult",
-    "HlwEpisode",
     "dating_knp",
-    "DatingKnpResult",
     "sim_innov",
     "sim_vol_garch",
     "sim_vol_break",
