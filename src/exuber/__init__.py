@@ -19,16 +19,24 @@ Scope so far:
     co-explosive behaviour test): multivariate.py.
   - contagion_reg() (Greenaway-McGrevy & Phillips 2016 bubble contagion
     regression, minimum-viable subset): multivariate.py.
+  - monitor(), monitor_cusum(), lbi_test()/monitor_lbi(), quantile_test()/
+    monitor_quantile(): real-time monitoring and quantile-based detection
+    (monitor.py) -- see that module's own docstring for exactly which
+    boundary variants of each are ported vs. deferred.
 
 Not yet ported (deferred, not silently dropped):
   - radf_wb_cv2/distr2 (Phillips & Shi PS wild bootstrap variant): needs
     an OLS-based lag-selection/AR-fit subsystem (adf_res/lag_select in
-    exuber's R/radf_wb.R) not built here yet.
+    exuber's R/radf_wb.R) not built here yet. monitor.py's own monitor()
+    is scoped to boundary="kurozumi"/"fluc" for the same reason (both
+    closed-form, no bootstrap needed).
   - radf_sb_cv/distr (sieve bootstrap): exuber's R implementation appears
     to overwrite rather than accumulate across panel series inside its
     bootstrap loop (R/radf_sb.R) -- porting that faithfully needs
     verification against R directly before shipping it, not a guess.
   - .summary()/.tidy()/.diagnostics() DataFrame-producing methods.
+  - QPSY (monitor_quantile()'s double-recursion sibling): O(T^2) QR fits,
+    a materially larger cost class than QPWY's O(T), not attempted.
 """
 
 from importlib.metadata import PackageNotFoundError
@@ -37,6 +45,20 @@ from importlib.metadata import version as _version
 from exuber.crit import radf_crit
 from exuber.cv import RadfCv, RadfDistr, radf_mc_cv, radf_mc_distr, radf_wb_cv, radf_wb_distr
 from exuber.datestamp import Episode, datestamp
+from exuber.monitor import (
+    LbiTestResult,
+    MonitorCusumResult,
+    MonitorLbiResult,
+    MonitorQuantileResult,
+    MonitorResult,
+    QuantileTestResult,
+    lbi_test,
+    monitor,
+    monitor_cusum,
+    monitor_lbi,
+    monitor_quantile,
+    quantile_test,
+)
 from exuber.multivariate import (
     CobubbleTestResult,
     ContagionRegResult,
@@ -84,4 +106,16 @@ __all__ = [
     "sim_blan",
     "sim_evans",
     "sim_div",
+    "monitor",
+    "MonitorResult",
+    "monitor_cusum",
+    "MonitorCusumResult",
+    "lbi_test",
+    "LbiTestResult",
+    "monitor_lbi",
+    "MonitorLbiResult",
+    "quantile_test",
+    "QuantileTestResult",
+    "monitor_quantile",
+    "MonitorQuantileResult",
 ]
