@@ -1,8 +1,9 @@
 """Dating and root inference: post-detection tools that operate on an
-episode radf()/datestamp() has already flagged as explosive. Three
-families so far, ported from exuber's R/rootstamp.R, R/dating_pdc.R and
-R/radf_recovery.R (see docs/dating-and-root-inference.md in the umbrella
-repo for the full methodology and validation record):
+episode radf()/datestamp() has already flagged as explosive. Four
+families so far, ported from exuber's R/rootstamp.R, R/dating_pdc.R,
+R/radf_recovery.R and R/dating_hls.R (see docs/dating-and-root-
+inference.md in the umbrella repo for the full methodology and
+validation record):
 
   - rootstamp()/rootstamp_episodes(): Guo, Sun & Wang (2019) normal-t CI
     and Phillips-Magdalinos (2007) Cauchy CI for the explosive AR(1) root,
@@ -17,6 +18,9 @@ repo for the full methodology and validation record):
     not fully resolved -- see radf_recovery()'s docstring and
     docs/dating-and-root-inference.md's "Reverse-regression recovery
     dating" section.
+  - dating_hls(): Harvey, Leybourne & Sollis (2017) SSR+BIC dating --
+    four candidate regime-dummy models, jointly-fit breakpoint search,
+    BIC model selection.
 
 Deviation from R: R's rootstamp.radf_obj(object, ds) reads its input
 series back out of `object` (a radf_obj, which carries its own data via
@@ -24,14 +28,15 @@ mat()). Python's RadfResult doesn't retain the raw data (see
 datestamp.py's docstring for the same gap), so rootstamp_episodes() here
 takes the original `data` as an explicit argument instead.
 
-Indexing note: dating_pdc()'s origination/collapse/recovery are 1-indexed
-row positions into `data` (matching R's own default `idx = 1:n` when no
-date index is supplied) -- NOT the 0-indexed convention datestamp()'s
-Episode uses. Kept 1-indexed deliberately so a number reported here matches
-the equivalent R run bit-for-bit rather than silently differing by one.
-radf_recovery()'s f_c/f_r, by contrast, ARE 0-indexed positions (the same
-convention as datestamp()'s Episode), since they're derived directly from
-radf()'s own bsadf array the same way datestamp() is.
+Indexing note: dating_pdc()'s and dating_hls()'s origination/collapse/
+recovery are 1-indexed row positions into `data` (matching R's own
+default `idx = 1:n` when no date index is supplied) -- NOT the 0-indexed
+convention datestamp()'s Episode uses. Kept 1-indexed deliberately so a
+number reported here matches the equivalent R run bit-for-bit rather
+than silently differing by one. radf_recovery()'s f_c/f_r, by contrast,
+ARE 0-indexed positions (the same convention as datestamp()'s Episode),
+since they're derived directly from radf()'s own bsadf array the same
+way datestamp() is.
 """
 
 import math
@@ -496,4 +501,260 @@ def radf_recovery(
 
     return _recovery_dates_from_bsadf(
         rev_fit.bsadf, cv.bsadf_cv, minw=minw, lag=lag, n=n, sig_lvl=sig_lvl, series_names=columns
+    )
+
+
+# -- SSR/BIC bubble dating (Harvey, Leybourne & Sollis 2017) ----------------
+#
+# Replaces PSY's threshold-crossing rule with a model-based SSR-minimisation
+# + BIC rule: four candidate regime-dummy regressions of Delta y_t on
+# y_{t-1} (unit-root-to-end / unit-root-bubble-unit-root / unit-root-
+# bubble-collapse / unit-root-bubble-collapse-unit-root), each fit by
+# residual-sum-of-squares minimisation over candidate break fractions
+# (jointly, per model), with BIC selecting among the four. Because the
+# four models' dummy windows never overlap, each candidate partition's
+# SSR is exactly the sum of independent per-segment closed-form OLS fits
+# (a no-dummy segment has SSR = sum(Delta y_t^2); a dummy segment is a
+# plain intercept+slope fit) -- a closed-form ratio of cumulative sums,
+# the same style of O(1)-per-candidate lookup _pdc_find_break() uses, so
+# the joint grid search needs no repeated regression fit, only prefix-sum
+# differences (matches exuber's own R/dating_hls.R exactly).
+#
+# Indexing: breakpoints are internally 0-indexed "boundary counts" b in
+# 0..n1 (n1 = len(y)-1) -- y[b] is the observation at that boundary (same
+# convention _pdc_find_break() uses). dating_hls()'s *output*
+# origination/collapse/recovery add 1 to match R's own dating_hls()
+# output number (R: idx[b + 1L], i.e. R's 1-indexed position b+1) --
+# matching dating_pdc()'s existing "R-bit-for-bit" convention, not
+# datestamp()'s 0-indexed Episode convention.
+
+
+@dataclass
+class _HlsPrefixSums:
+    cx: np.ndarray
+    cx2: np.ndarray
+    cz: np.ndarray
+    cz2: np.ndarray
+    cxz: np.ndarray
+    n1: int
+
+
+def _hls_prefix_sums(y: np.ndarray) -> _HlsPrefixSums:
+    n1 = len(y) - 1
+    x = y[:n1]
+    z = np.diff(y)
+    return _HlsPrefixSums(
+        cx=np.concatenate(([0.0], np.cumsum(x))),
+        cx2=np.concatenate(([0.0], np.cumsum(x**2))),
+        cz=np.concatenate(([0.0], np.cumsum(z))),
+        cz2=np.concatenate(([0.0], np.cumsum(z**2))),
+        cxz=np.concatenate(([0.0], np.cumsum(x * z))),
+        n1=n1,
+    )
+
+
+def _hls_segment_ssr(ps: _HlsPrefixSums, lo, hi, fit: bool):
+    """SSR of the segment(s) with i-index in (lo, hi] (lo/hi may be
+    scalars or equal-length/broadcastable arrays). fit=False: no active
+    dummy, SSR = sum(z^2). fit=True: intercept + slope OLS of z on x."""
+    sx = ps.cx[hi] - ps.cx[lo]
+    sxx = ps.cx2[hi] - ps.cx2[lo]
+    sz = ps.cz[hi] - ps.cz[lo]
+    szz = ps.cz2[hi] - ps.cz2[lo]
+    if not fit:
+        return szz
+    sxz = ps.cxz[hi] - ps.cxz[lo]
+    n_seg = np.asarray(hi) - np.asarray(lo)
+    b = (n_seg * sxz - sx * sz) / (n_seg * sxx - sx**2)
+    a = (sz - b * sx) / n_seg
+    return szz - a * sz - b * sxz
+
+
+def _hls_model1(y: np.ndarray, ps: _HlsPrefixSums, trim: float) -> tuple[int | None, float]:
+    """Model 1: unit root -> bubble to sample end. Sign constraint:
+    y_T > y_tau1 (series ends above where the bubble started)."""
+    n1 = ps.n1
+    k_min = max(2, math.ceil(trim * n1))
+    taus = np.arange(k_min, n1 - k_min + 1)
+    taus = taus[y[n1] > y[taus]]
+    if len(taus) == 0:
+        return None, math.inf
+    ssr = _hls_segment_ssr(ps, 0, taus, False) + _hls_segment_ssr(ps, taus, n1, True)
+    best = int(np.argmin(ssr))
+    return int(taus[best]), float(ssr[best])
+
+
+def _hls_model23(
+    y: np.ndarray, ps: _HlsPrefixSums, trim: float, right_fit: bool
+) -> tuple[int | None, int | None, float]:
+    """Model 2 (right_fit=False, post-bubble tail unfitted) / Model 3
+    (right_fit=True, post-bubble tail fitted as its own collapse regime).
+    Sign constraint: y_tau2 > y_tau1 always; right_fit also requires
+    y_tau2 > y_T (the peak must exceed the fitted collapse's endpoint)."""
+    n1 = ps.n1
+    k_min = max(2, math.ceil(trim * n1))
+    best_ssr, best_tau1, best_tau2 = math.inf, None, None
+    tau1_max = n1 - 2 * k_min
+    if tau1_max < k_min:
+        return None, None, math.inf
+    for tau1 in range(k_min, tau1_max + 1):
+        tau2 = np.arange(tau1 + k_min, n1 - k_min + 1)
+        valid = y[tau2] > y[tau1]
+        if right_fit:
+            valid = valid & (y[tau2] > y[n1])
+        tau2 = tau2[valid]
+        if len(tau2) == 0:
+            continue
+        ssr = (
+            _hls_segment_ssr(ps, 0, tau1, False)
+            + _hls_segment_ssr(ps, tau1, tau2, True)
+            + _hls_segment_ssr(ps, tau2, n1, right_fit)
+        )
+        j = int(np.argmin(ssr))
+        if ssr[j] < best_ssr:
+            best_ssr, best_tau1, best_tau2 = float(ssr[j]), tau1, int(tau2[j])
+    return best_tau1, best_tau2, best_ssr
+
+
+def _hls_model4(
+    y: np.ndarray, ps: _HlsPrefixSums, trim: float
+) -> tuple[int | None, int | None, int | None, float]:
+    """Model 4: unit root -> bubble -> collapse -> unit root recovery.
+    Sign constraints: y_tau2 > y_tau1 and y_tau2 > y_tau3 (the peak must
+    exceed both the bubble's start and the fitted collapse's endpoint)."""
+    n1 = ps.n1
+    k_min = max(2, math.ceil(trim * n1))
+    best_ssr: float = math.inf
+    best_tau1: int | None = None
+    best_tau2: int | None = None
+    best_tau3: int | None = None
+    tau1_max = n1 - 3 * k_min
+    if tau1_max < k_min:
+        return None, None, None, math.inf
+    for tau1 in range(k_min, tau1_max + 1):
+        tau2_max = n1 - 2 * k_min
+        for tau2 in range(tau1 + k_min, tau2_max + 1):
+            if y[tau2] <= y[tau1]:
+                continue
+            tau3 = np.arange(tau2 + k_min, n1 - k_min + 1)
+            tau3 = tau3[y[tau2] > y[tau3]]
+            if len(tau3) == 0:
+                continue
+            ssr = (
+                _hls_segment_ssr(ps, 0, tau1, False)
+                + _hls_segment_ssr(ps, tau1, tau2, True)
+                + _hls_segment_ssr(ps, tau2, tau3, True)
+                + _hls_segment_ssr(ps, tau3, n1, False)
+            )
+            j = int(np.argmin(ssr))
+            if ssr[j] < best_ssr:
+                best_ssr = float(ssr[j])
+                best_tau1, best_tau2, best_tau3 = tau1, tau2, int(tau3[j])
+    return best_tau1, best_tau2, best_tau3, best_ssr
+
+
+def _hls_bic(ssr: float, n: int, df: int) -> float:
+    return n * math.log(ssr / n) + df * math.log(n)
+
+
+_HLS_DFS = (3, 4, 6, 7)  # models 1-4
+
+
+@dataclass
+class HlsFit:
+    model: int  # 1-4
+    breaks: dict[str, int | None]  # "tau1"/"tau2"/"tau3" -> 0-indexed boundary count
+    bic: np.ndarray  # length 4, inf for unrequested models
+
+
+def _hls_fit_series(y: np.ndarray, trim: float, models: tuple[int, ...] = (1, 2, 3, 4)) -> HlsFit:
+    """Fits the requested subset of HLS's four models to a single series
+    `y` and BIC-selects among them. Shared by dating_hls() and (per-window,
+    restricted to models (2, 4)) dating_hlw()."""
+    n = len(y)
+    ps = _hls_prefix_sums(y)
+    bic = np.full(4, math.inf)
+    fits: dict[int, tuple] = {}
+
+    if 1 in models:
+        tau1, ssr = _hls_model1(y, ps, trim)
+        fits[1] = (tau1,)
+        bic[0] = _hls_bic(ssr, n, _HLS_DFS[0])
+    if 2 in models:
+        tau1, tau2, ssr = _hls_model23(y, ps, trim, right_fit=False)
+        fits[2] = (tau1, tau2)
+        bic[1] = _hls_bic(ssr, n, _HLS_DFS[1])
+    if 3 in models:
+        tau1, tau2, ssr = _hls_model23(y, ps, trim, right_fit=True)
+        fits[3] = (tau1, tau2)
+        bic[2] = _hls_bic(ssr, n, _HLS_DFS[2])
+    if 4 in models:
+        tau1, tau2, tau3, ssr = _hls_model4(y, ps, trim)
+        fits[4] = (tau1, tau2, tau3)
+        bic[3] = _hls_bic(ssr, n, _HLS_DFS[3])
+
+    jopt = int(np.argmin(bic)) + 1
+    fit = fits[jopt]
+    if jopt == 1:
+        breaks = {"tau1": fit[0]}
+    elif jopt in (2, 3):
+        breaks = {"tau1": fit[0], "tau2": fit[1]}
+    else:
+        breaks = {"tau1": fit[0], "tau2": fit[1], "tau3": fit[2]}
+    return HlsFit(model=jopt, breaks=breaks, bic=bic)
+
+
+@dataclass
+class DatingHlsResult:
+    model: np.ndarray  # int per series, 1-4
+    origination: np.ndarray  # NaN if not applicable
+    collapse: np.ndarray
+    recovery: np.ndarray
+    bic: np.ndarray  # (nc, 4)
+    series_names: list[str] | None
+    trim: float
+    n: int
+
+
+def dating_hls(data, trim: float = 0.05) -> DatingHlsResult:
+    """SSR/BIC bubble dating (Harvey, Leybourne & Sollis 2017). Fits four
+    candidate regime-dummy regressions of Delta y_t on y_{t-1} (unit-
+    root-to-end / unit-root-bubble-unit-root / unit-root-bubble-collapse
+    / unit-root-bubble-collapse-unit-root), each by joint residual-sum-
+    -of-squares minimisation over its candidate break fraction(s), and
+    selects among them by BIC.
+
+    Unlike datestamp() (threshold-crossing on the recursive BSADF
+    statistic) or dating_pdc() (a fixed 3/4-regime structure with
+    sequentially, not jointly, estimated breaks), this jointly searches
+    breakpoints within each of four candidate regime structures and lets
+    BIC pick the structure itself. Needs no critical values -- this is
+    model selection, not a hypothesis test.
+    """
+    x, columns = _to_2d_array(data)
+    n, nc = x.shape
+    names = columns or [f"series{i + 1}" for i in range(nc)]
+
+    model = np.empty(nc, dtype=int)
+    origination = np.full(nc, np.nan)
+    collapse = np.full(nc, np.nan)
+    recovery = np.full(nc, np.nan)
+    bic_mat = np.full((nc, 4), np.nan)
+
+    for j in range(nc):
+        fit = _hls_fit_series(x[:, j], trim, models=(1, 2, 3, 4))
+        model[j] = fit.model
+        bic_mat[j, :] = fit.bic
+        b = fit.breaks
+        tau1, tau2, tau3 = b.get("tau1"), b.get("tau2"), b.get("tau3")
+        if tau1 is not None:
+            origination[j] = tau1 + 1
+        if tau2 is not None:
+            collapse[j] = tau2 + 1
+        if tau3 is not None:
+            recovery[j] = tau3 + 1
+
+    return DatingHlsResult(
+        model=model, origination=origination, collapse=collapse, recovery=recovery,
+        bic=bic_mat, series_names=names, trim=trim, n=n,
     )
