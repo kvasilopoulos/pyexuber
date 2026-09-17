@@ -14,8 +14,8 @@ Scope so far:
     store exuber's R package also reads (crit.py), so a typical analysis
     needn't simulate its own.
   - rootstamp()/rootstamp_episodes(), dating_pdc(), radf_recovery()/
-    radf_recovery_cv(), dating_hls(): dating and root inference
-    (dating.py) -- see its module docstring for scope/caveats.
+    radf_recovery_cv(), dating_hls(), dating_hlw(): dating and root
+    inference (dating.py) -- see its module docstring for scope/caveats.
 
 Not yet ported (deferred, not silently dropped):
   - radf_wb_cv2/distr2 (Phillips & Shi PS wild bootstrap variant): needs
@@ -36,12 +36,15 @@ from exuber.cv import RadfCv, RadfDistr, radf_mc_cv, radf_mc_distr, radf_wb_cv, 
 from exuber.datestamp import Episode, datestamp
 from exuber.dating import (
     DatingHlsResult,
+    DatingHlwResult,
     DatingPdcResult,
+    HlwEpisode,
     RadfRecoveryCv,
     RadfRecoveryResult,
     RootstampEpisode,
     RootstampEst,
     dating_hls,
+    dating_hlw,
     dating_pdc,
     radf_recovery,
     radf_recovery_cv,
@@ -89,4 +92,7 @@ __all__ = [
     "RadfRecoveryCv",
     "dating_hls",
     "DatingHlsResult",
+    "dating_hlw",
+    "DatingHlwResult",
+    "HlwEpisode",
 ]
