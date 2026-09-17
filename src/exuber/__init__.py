@@ -23,6 +23,10 @@ Scope so far:
     monitor_quantile(): real-time monitoring and quantile-based detection
     (monitor.py) -- see that module's own docstring for exactly which
     boundary variants of each are ported vs. deferred.
+  - rootstamp()/rootstamp_episodes(), dating_pdc(), radf_recovery()/
+    radf_recovery_cv(), dating_hls(), dating_hlw(), dating_knp(): dating
+    and root inference (dating.py) -- see its module docstring for
+    scope/caveats.
 
 Not yet ported (deferred, not silently dropped):
   - radf_wb_cv2/distr2 (Phillips & Shi PS wild bootstrap variant): needs
@@ -45,6 +49,25 @@ from importlib.metadata import version as _version
 from exuber.crit import radf_crit
 from exuber.cv import RadfCv, RadfDistr, radf_mc_cv, radf_mc_distr, radf_wb_cv, radf_wb_distr
 from exuber.datestamp import Episode, datestamp
+from exuber.dating import (
+    DatingHlsResult,
+    DatingHlwResult,
+    DatingKnpResult,
+    DatingPdcResult,
+    HlwEpisode,
+    RadfRecoveryCv,
+    RadfRecoveryResult,
+    RootstampEpisode,
+    RootstampEst,
+    dating_hls,
+    dating_hlw,
+    dating_knp,
+    dating_pdc,
+    radf_recovery,
+    radf_recovery_cv,
+    rootstamp,
+    rootstamp_episodes,
+)
 from exuber.monitor import (
     LbiTestResult,
     MonitorCusumResult,
@@ -118,4 +141,21 @@ __all__ = [
     "QuantileTestResult",
     "monitor_quantile",
     "MonitorQuantileResult",
+    "rootstamp",
+    "rootstamp_episodes",
+    "RootstampEst",
+    "RootstampEpisode",
+    "dating_pdc",
+    "DatingPdcResult",
+    "radf_recovery",
+    "radf_recovery_cv",
+    "RadfRecoveryResult",
+    "RadfRecoveryCv",
+    "dating_hls",
+    "DatingHlsResult",
+    "dating_hlw",
+    "DatingHlwResult",
+    "HlwEpisode",
+    "dating_knp",
+    "DatingKnpResult",
 ]
