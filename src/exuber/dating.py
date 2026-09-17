@@ -1,9 +1,9 @@
 """Dating and root inference: post-detection tools that operate on an
-episode radf()/datestamp() has already flagged as explosive. Five
+episode radf()/datestamp() has already flagged as explosive. Six
 families so far, ported from exuber's R/rootstamp.R, R/dating_pdc.R,
-R/radf_recovery.R, R/dating_hls.R and R/dating_hlw.R (see docs/dating-
-and-root-inference.md in the umbrella repo for the full methodology and
-validation record):
+R/radf_recovery.R, R/dating_hls.R, R/dating_hlw.R and R/dating_knp.R
+(see docs/dating-and-root-inference.md in the umbrella repo for the
+full methodology and validation record):
 
   - rootstamp()/rootstamp_episodes(): Guo, Sun & Wang (2019) normal-t CI
     and Phillips-Magdalinos (2007) Cauchy CI for the explosive AR(1) root,
@@ -25,6 +25,12 @@ validation record):
     multi-bubble wrapper around dating_hls() -- PSY detection carves the
     sample into date windows, each re-dated by dating_hls()-style
     fitting.
+  - dating_knp(): Kejriwal, Nguyen & Perron (2025) bias-corrected
+    single-bubble dating -- reuses HLS's own Model-2-shaped machinery,
+    omitting one squared residual to restore consistency (their
+    Theorem 2). The multi-bubble Bai-Perron/Perron-Qu DP extension
+    (their Section 3) is not implemented, same scoping decision as
+    dating_hlw()'s unimplemented run-joining heuristic.
 
 Deviation from R: R's rootstamp.radf_obj(object, ds) reads its input
 series back out of `object` (a radf_obj, which carries its own data via
@@ -32,8 +38,9 @@ mat()). Python's RadfResult doesn't retain the raw data (see
 datestamp.py's docstring for the same gap), so rootstamp_episodes() here
 takes the original `data` as an explicit argument instead.
 
-Indexing note: dating_pdc()'s, dating_hls()'s and dating_hlw()'s
-origination/collapse/recovery are 1-indexed row positions into `data`
+Indexing note: dating_pdc()'s, dating_hls()'s, dating_hlw()'s and
+dating_knp()'s origination/collapse/recovery are 1-indexed row positions
+into `data`
 (matching R's own
 default `idx = 1:n` when no date index is supplied) -- NOT the 0-indexed
 convention datestamp()'s Episode uses. Kept 1-indexed deliberately so a
@@ -575,6 +582,20 @@ def _hls_segment_ssr(ps: _HlsPrefixSums, lo, hi, fit: bool):
     return szz - a * sz - b * sxz
 
 
+def _hls_segment_coef(ps: _HlsPrefixSums, lo, hi) -> tuple[float, float]:
+    """Intercept + slope OLS coefficients of z on x over segment (lo, hi]
+    (same closed form as _hls_segment_ssr(..., fit=True), returning the
+    coefficients themselves rather than the SSR -- used by dating_knp())."""
+    sx = ps.cx[hi] - ps.cx[lo]
+    sxx = ps.cx2[hi] - ps.cx2[lo]
+    sz = ps.cz[hi] - ps.cz[lo]
+    sxz = ps.cxz[hi] - ps.cxz[lo]
+    n_seg = np.asarray(hi) - np.asarray(lo)
+    b = (n_seg * sxz - sx * sz) / (n_seg * sxx - sx**2)
+    a = (sz - b * sx) / n_seg
+    return float(a), float(b)
+
+
 def _hls_model1(y: np.ndarray, ps: _HlsPrefixSums, trim: float) -> tuple[int | None, float]:
     """Model 1: unit root -> bubble to sample end. Sign constraint:
     y_T > y_tau1 (series ends above where the bubble started)."""
@@ -902,3 +923,103 @@ def dating_hlw(
         results[name] = _dating_hlw_from_episodes(x[:, j], ds.get(name, []), n, trim)
 
     return DatingHlwResult(episodes=results, series_names=names, trim=trim, minw=minw, n=n)
+
+
+# -- Bias-corrected single-bubble dating (Kejriwal, Nguyen & Perron 2025) ---
+#
+# KNP's own model (unit root -> intercept+slope-fitted explosive regime
+# -> unit root resuming from a shifted level after an instantaneous
+# collapse) is structurally identical to HLS's own Model 2, so this
+# reuses _hls_prefix_sums()/_hls_segment_ssr() directly. Plain OLS over
+# this model is provably inconsistent (their Theorem 1): the
+# origination-date estimate converges to the true COLLAPSE date, not the
+# origination date. Their Theorem 2 fix omits the single squared
+# residual at the candidate collapse-date observation from the objective
+# before minimising -- no new regression, just subtracting one
+# already-available squared term. Unlike _hls_model23(), KNP's candidate
+# set imposes no sign constraint on the fitted "peak". The multi-bubble
+# Bai-Perron/Perron-Qu dynamic-programming extension (KNP's Section 3)
+# is not implemented -- same scoping decision as dating_hlw()'s own
+# unimplemented run-joining heuristic (genuinely new algorithmic
+# machinery, not a small addition to already-shipped code).
+
+
+def _knp_find_break(
+    y: np.ndarray, trim: float = 0.05, omit: bool = True
+) -> tuple[int | None, int | None, float]:
+    n1 = len(y) - 1
+    ps = _hls_prefix_sums(y)
+    k_min = max(2, math.ceil(trim * n1))
+    tau1_max = n1 - 2 * k_min
+    if tau1_max < k_min:
+        return None, None, math.inf
+
+    best_ssr, best_tau1, best_tau2 = math.inf, None, None
+    for tau1 in range(k_min, tau1_max + 1):
+        tau2 = np.arange(tau1 + k_min, n1 - k_min + 1)
+        ssr = (
+            _hls_segment_ssr(ps, 0, tau1, False)
+            + _hls_segment_ssr(ps, tau1, tau2, True)
+            + _hls_segment_ssr(ps, tau2, n1, False)
+        )
+        if omit:
+            z2_single = ps.cz2[tau2 + 1] - ps.cz2[tau2]  # (Delta y_{tau2+1})^2
+            ssr = ssr - z2_single
+        j = int(np.argmin(ssr))
+        if ssr[j] < best_ssr:
+            best_ssr, best_tau1, best_tau2 = float(ssr[j]), tau1, int(tau2[j])
+    return best_tau1, best_tau2, best_ssr
+
+
+@dataclass
+class DatingKnpResult:
+    origination: np.ndarray  # R-bit-for-bit 1-indexed position, NaN if not found
+    collapse: np.ndarray
+    delta: np.ndarray  # fitted explosive AR coefficient (1 + slope)
+    series_names: list[str] | None
+    trim: float
+    omit: bool
+    n: int
+
+
+def dating_knp(data, trim: float = 0.05, omit: bool = True) -> DatingKnpResult:
+    """Bias-corrected single-bubble dating (Kejriwal, Nguyen & Perron 2025).
+    Dates a single bubble episode (origination, collapse) by minimising a
+    residual-omission-corrected sum of squared residuals over a
+    three-regime model (unit root, explosive, unit root resuming from a
+    shifted level after an instantaneous collapse). Plain OLS over this
+    model is provably inconsistent -- the origination-date estimate
+    converges to the true collapse date, not the origination date --
+    which omit=True (the default) fixes by dropping the single squared
+    residual at the candidate collapse date from the objective before
+    minimising.
+
+    omit=False gives the plain, provably inconsistent OLS estimator
+    (Theorem 1) -- kept mainly to demonstrate the correction's effect,
+    not for practical dating. Needs no critical values -- this is
+    residual-sum-of-squares model selection, not a hypothesis test.
+    """
+    x, columns = _to_2d_array(data)
+    n, nc = x.shape
+    names = columns or [f"series{i + 1}" for i in range(nc)]
+
+    origination = np.full(nc, np.nan)
+    collapse = np.full(nc, np.nan)
+    delta = np.full(nc, np.nan)
+
+    for j in range(nc):
+        y = x[:, j]
+        ps = _hls_prefix_sums(y)
+        tau1, tau2, _ssr = _knp_find_break(y, trim, omit)
+        if tau1 is not None:
+            origination[j] = tau1 + 1
+        if tau2 is not None:
+            collapse[j] = tau2 + 1
+        if tau1 is not None and tau2 is not None:
+            _a, b = _hls_segment_coef(ps, tau1, tau2)
+            delta[j] = b + 1
+
+    return DatingKnpResult(
+        origination=origination, collapse=collapse, delta=delta,
+        series_names=names, trim=trim, omit=omit, n=n,
+    )

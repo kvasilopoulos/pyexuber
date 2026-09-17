@@ -43,3 +43,7 @@ def test_radf_hls_validation_script():
 
 def test_radf_hlw_validation_script():
     _run_script("radf_hlw_validation.py")
+
+
+def test_radf_knp_validation_script():
+    _run_script("radf_knp_validation.py")
