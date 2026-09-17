@@ -141,17 +141,39 @@ def radf_mc_distr(
 # -- Wild bootstrap (Harvey, Leybourne, Sollis & Taylor 2016) ---------------
 
 
-def _wb_dgp_hlst(y: np.ndarray, dist_rad: bool, rng: np.random.Generator) -> np.ndarray:
+def _wb_dgp_hlst(
+    y: np.ndarray, dist_rad: bool, rng: np.random.Generator, dist_skew: bool = False
+) -> np.ndarray:
     dy = np.diff(y)
     nr = len(dy)
-    w = rng.choice([-1.0, 1.0], size=nr) if dist_rad else rng.normal(size=nr)
+    if dist_skew:
+        # Hafner (2020), Step 1: w = u/sqrt(2) + (v^2-1)/2, u,v ~ iid N(0,1)
+        # independent -- E[w]=0, E[w^2]=1, E[w^3]=1, a fixed right-skewed
+        # multiplier for series with right-skewed return distributions
+        # (crypto in the source paper), vs. dist_rad's symmetric two-point
+        # multiplier.
+        u = rng.normal(size=nr)
+        v = rng.normal(size=nr)
+        w = u / np.sqrt(2) + (v**2 - 1) / 2
+    elif dist_rad:
+        w = rng.choice([-1.0, 1.0], size=nr)
+    else:
+        w = rng.normal(size=nr)
     estar = np.cumsum(w * dy)
     return np.concatenate(([0.0], estar))
 
 
 def _radf_wb_hlst(
-    data, minw: int | None = None, nboot: int = 500, dist_rad: bool = False, seed: int | None = None
+    data,
+    minw: int | None = None,
+    nboot: int = 500,
+    dist_rad: bool = False,
+    dist_skew: bool = False,
+    seed: int | None = None,
 ) -> dict:
+    if dist_rad and dist_skew:
+        raise ValueError("only one of 'dist_rad' and 'dist_skew' may be True")
+
     from . import _core  # lazy: see radf.py's radf() for why
 
     y, columns = _to_2d_array(data)
@@ -168,7 +190,7 @@ def _radf_wb_hlst(
 
     for j in range(nc):
         for i in range(nboot):
-            ystar = _wb_dgp_hlst(y[:, j], dist_rad, rng)
+            ystar = _wb_dgp_hlst(y[:, j], dist_rad, rng, dist_skew)
             yxmat = unroot(ystar)
             result = _core.radf_stat(yxmat, minw, 0)
             badf[:, i, j] = result[:pointer]
@@ -184,10 +206,23 @@ def _radf_wb_hlst(
 
 
 def radf_wb_cv(
-    data, minw: int | None = None, nboot: int = 500, dist_rad: bool = False, seed: int | None = None
+    data,
+    minw: int | None = None,
+    nboot: int = 500,
+    dist_rad: bool = False,
+    dist_skew: bool = False,
+    seed: int | None = None,
 ) -> RadfCv:
-    """Wild bootstrap critical values (Harvey, Leybourne, Sollis & Taylor 2016)."""
-    r = _radf_wb_hlst(data, minw, nboot, dist_rad, seed)
+    """Wild bootstrap critical values (Harvey, Leybourne, Sollis & Taylor 2016).
+
+    `dist_skew=True` uses Hafner (2020)'s fixed right-skewed multiplier
+    distribution (`w = u/sqrt(2) + (v^2-1)/2`, u,v iid N(0,1)) instead of
+    the default standard normal or (`dist_rad=True`) Rademacher one --
+    appropriate when the series' own return distribution is notably
+    right-skewed (e.g. cryptocurrency returns, the paper's own
+    application). At most one of `dist_rad`/`dist_skew` may be True.
+    """
+    r = _radf_wb_hlst(data, minw, nboot, dist_rad, dist_skew, seed)
 
     adf_cv = np.quantile(r["adf"], PCNT, axis=0).T
     sadf_cv = np.quantile(r["sadf"], PCNT, axis=0).T
@@ -203,10 +238,16 @@ def radf_wb_cv(
 
 
 def radf_wb_distr(
-    data, minw: int | None = None, nboot: int = 500, dist_rad: bool = False, seed: int | None = None
+    data,
+    minw: int | None = None,
+    nboot: int = 500,
+    dist_rad: bool = False,
+    dist_skew: bool = False,
+    seed: int | None = None,
 ) -> RadfDistr:
-    """Wild bootstrap distribution of the ADF/SADF/GSADF statistics."""
-    r = _radf_wb_hlst(data, minw, nboot, dist_rad, seed)
+    """Wild bootstrap distribution of the ADF/SADF/GSADF statistics. See
+    `radf_wb_cv()` for `dist_skew`."""
+    r = _radf_wb_hlst(data, minw, nboot, dist_rad, dist_skew, seed)
     return RadfDistr(
         adf_distr=r["adf"], sadf_distr=r["sadf"], gsadf_distr=r["gsadf"],
         method="Wild Bootstrap", minw=r["minw"], n=r["n"], iter=nboot,
