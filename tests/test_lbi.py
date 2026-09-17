@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from test_monitor import Y42
 
-from exuber.monitor import _bd_cusum_q, _bd_cusum_weights, lbi_test, monitor_lbi
+from exuber.lbi_test import _bd_cusum_q, _bd_cusum_weights, lbi_test, monitor_lbi
 
 
 def test_lbi_test_matches_r():

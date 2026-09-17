@@ -1,4 +1,4 @@
-"""Tests for exuber.monitor.monitor_quantile(). _qpwy_stat_path() is
+"""Tests for exuber.monitor_quantile.monitor_quantile(). _qpwy_stat_path() is
 deterministic (no RNG, no radf()) and cross-checked bit-for-bit against
 R. The full monitor_quantile() call needs radf() (the compiled `_core`
 extension, not buildable on this dev machine -- see pyexuber/CLAUDE.md),
@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from test_monitor import Y42
 
-from exuber.monitor import _qpwy_stat_path, monitor_quantile
+from exuber.monitor_quantile import _qpwy_stat_path, monitor_quantile
 
 
 def test_qpwy_stat_path_matches_r():
@@ -25,7 +25,7 @@ def test_qpwy_stat_path_matches_r():
 def test_qpwy_stat_path_last_value_matches_quantile_test_tstat():
     # Structural check (Corollary 2's own claim, restated): at the full
     # sample window, QPWY_n(tau) is exactly quantile_test()'s own tstat.
-    from exuber.monitor import quantile_test
+    from exuber.quantile_test import quantile_test
 
     minw = 15
     r_idx = np.arange(minw + 1, len(Y42) + 1)
