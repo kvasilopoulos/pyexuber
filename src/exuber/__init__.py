@@ -52,12 +52,12 @@ Not yet ported (deferred, not silently dropped):
   - QPSY (monitor_quantile()'s double-recursion sibling): O(T^2) QR fits,
     a materially larger cost class than QPWY's O(T), not attempted.
 
-Note on radf_sb_cv/distr: exuber's own R/radf_sb.R has an off-by-one bug
-in its bootstrap DGP for lag > 0 (`initmat[j, lag:1]` is one element short
-of the `lag + 1` the recursive AR filter needs, confirmed by direct R
-inspection -- `type = "fixed"`'s default lag = 0 is unaffected, which is
-why the existing `radf_sb_cv_aic_bic_validation.R` script didn't catch
-it). This port does not reproduce that bug -- see cv.py's `_radf_sb`.
+Note on radf_sb_cv/distr: this port's bootstrap DGP prepends the *full*
+initmat[j, :] (reversed) rather than R's original initmat[j, lag:1],
+which was one element short of the lag + 1 the recursive AR filter needs
+for lag > 0 (R's index-0 drop rule made `lag:1` accidentally correct only
+at lag = 0). That was a real bug in exuber's own R/radf_sb.R, since
+fixed upstream (initmat[j, (lag + 1):1]) -- see cv.py's `_radf_sb`.
 """
 
 from importlib.metadata import PackageNotFoundError

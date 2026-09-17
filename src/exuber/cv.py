@@ -458,10 +458,11 @@ def _radf_sb(
         for j in range(nc):
             boot_res = resmat[boot_index, j]
             dboot_res = boot_res - boot_res.mean()
-            # Prepend is initmat[j] reversed to forward-time order (R's own
-            # `initmat[j, lag:1]` is short by one element for lag > 0 --
-            # verified against R directly, see the validation script --
-            # so this uses the full lag+1 reversal the algorithm needs).
+            # Prepend is initmat[j] reversed to forward-time order (R's
+            # original `initmat[j, lag:1]` was short by one element for
+            # lag > 0 -- a real bug, confirmed and since fixed upstream in
+            # exuber/R/radf_sb.R as `initmat[j, (lag + 1):1]`; this uses
+            # the same full lag+1 reversal).
             prepend = initmat[j, :][::-1]
             filtered = _filter_recursive(coefmat[j, 0] + dboot_res, coefmat[j, 1:], initmat[j, :])
             dy_boot = np.concatenate([prepend, filtered])
