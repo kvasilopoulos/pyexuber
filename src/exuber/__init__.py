@@ -4,10 +4,19 @@ root tests for explosive time series).
 Scope so far:
   - radf(): the core recursive ADF/SADF/GSADF/BSADF statistic (C++, via
     exubercore).
-  - radf_mc_cv/distr, radf_wb_cv/distr (HLST wild bootstrap): critical
-    values / distributions, pure Python + numpy (RNG-driven, mirrors
-    exuber's R orchestration around the same core statistic).
-  - sim_*: bubble DGP simulators, pure Python + numpy.
+  - radf_mc_cv/distr, radf_wb_cv/distr (HLST wild bootstrap),
+    radf_wb_ps_cv/distr (Phillips-Shi wild bootstrap variant),
+    radf_sb_cv/distr (sieve bootstrap): critical values / distributions,
+    pure Python + numpy (RNG-driven, mirrors exuber's R orchestration
+    around the same core statistic). lag_select()/adf_res()
+    (exuber._lagselect, internal) are the deterministic exception,
+    verified bit-for-bit against R.
+  - sim_*: bubble DGP simulators, pure Python + numpy. The original seven
+    (sim_psy1/2, sim_ps1/2, sim_blan, sim_evans, sim_div) plus the
+    2026-08 innovation-generator extensions (sim_innov, sim_vol_garch,
+    sim_vol_break, sim_vol_cir, sim_vol_sv, sim_fi) and optional axes on
+    sim_psy1 (e/shifts/coef_noise/coef_a) and sim_blan
+    (type="rotermann_wilfling").
   - datestamp(): episode date-stamping (Start/Peak/End/Duration/Ongoing),
     with one simplification -- see datestamp.py's module docstring.
   - radf_crit(): precomputed Monte Carlo critical values from the shared
@@ -27,27 +36,48 @@ Scope so far:
     radf_recovery_cv(), dating_hls(), dating_hlw(), dating_knp(): dating
     and root inference (dating.py) -- see its module docstring for
     scope/caveats.
+  - tidy()/augment(): DataFrame-producing accessors for a RadfResult
+    (radf_obj's methods only, not radf_cv/radf_distr's, and not
+    tidy_join/augment_join/summary/diagnostics -- see tidy.py's module
+    docstring). Needs pandas (`pip install pyexuber[pandas]`), lazily
+    imported.
 
 Not yet ported (deferred, not silently dropped):
-  - radf_wb_cv2/distr2 (Phillips & Shi PS wild bootstrap variant): needs
-    an OLS-based lag-selection/AR-fit subsystem (adf_res/lag_select in
-    exuber's R/radf_wb.R) not built here yet. monitor.py's own monitor()
-    is scoped to boundary="kurozumi"/"fluc" for the same reason (both
-    closed-form, no bootstrap needed).
-  - radf_sb_cv/distr (sieve bootstrap): exuber's R implementation appears
-    to overwrite rather than accumulate across panel series inside its
-    bootstrap loop (R/radf_sb.R) -- porting that faithfully needs
-    verification against R directly before shipping it, not a guess.
-  - .summary()/.tidy()/.diagnostics() DataFrame-producing methods.
+  - the remaining 2026-08 sim_*() DGP extensions: sim_coexplosive,
+    sim_common, sim_falsebubble, sim_mar, sim_msbubble, sim_tree,
+    sim_dgp1/2 -- larger, more involved DGPs than the innovation
+    generators above, left for later.
+  - tidy()/augment() for radf_cv/radf_distr, tidy_join()/augment_join(),
+    summary(), diagnostics().
   - QPSY (monitor_quantile()'s double-recursion sibling): O(T^2) QR fits,
     a materially larger cost class than QPWY's O(T), not attempted.
+
+Note on radf_sb_cv/distr: exuber's own R/radf_sb.R has an off-by-one bug
+in its bootstrap DGP for lag > 0 (`initmat[j, lag:1]` is one element short
+of the `lag + 1` the recursive AR filter needs, confirmed by direct R
+inspection -- `type = "fixed"`'s default lag = 0 is unaffected, which is
+why the existing `radf_sb_cv_aic_bic_validation.R` script didn't catch
+it). This port does not reproduce that bug -- see cv.py's `_radf_sb`.
 """
 
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _version
 
 from exuber.crit import radf_crit
-from exuber.cv import RadfCv, RadfDistr, radf_mc_cv, radf_mc_distr, radf_wb_cv, radf_wb_distr
+from exuber.cv import (
+    RadfCv,
+    RadfDistr,
+    RadfSbCv,
+    RadfSbDistr,
+    radf_mc_cv,
+    radf_mc_distr,
+    radf_sb_cv,
+    radf_sb_distr,
+    radf_wb_cv,
+    radf_wb_distr,
+    radf_wb_ps_cv,
+    radf_wb_ps_distr,
+)
 from exuber.datestamp import Episode, datestamp
 from exuber.dating import (
     DatingHlsResult,
@@ -93,7 +123,22 @@ from exuber.multivariate import (
     radf_common_cv,
 )
 from exuber.radf import RadfResult, psy_ds, psy_minw, radf
-from exuber.sim import sim_blan, sim_div, sim_evans, sim_ps1, sim_ps2, sim_psy1, sim_psy2
+from exuber.sim import (
+    sim_blan,
+    sim_div,
+    sim_evans,
+    sim_fi,
+    sim_innov,
+    sim_ps1,
+    sim_ps2,
+    sim_psy1,
+    sim_psy2,
+    sim_vol_break,
+    sim_vol_cir,
+    sim_vol_garch,
+    sim_vol_sv,
+)
+from exuber.tidy import augment, tidy
 
 try:
     __version__ = _version("pyexuber")
@@ -110,8 +155,14 @@ __all__ = [
     "radf_mc_distr",
     "radf_wb_cv",
     "radf_wb_distr",
+    "radf_wb_ps_cv",
+    "radf_wb_ps_distr",
+    "radf_sb_cv",
+    "radf_sb_distr",
     "RadfCv",
     "RadfDistr",
+    "RadfSbCv",
+    "RadfSbDistr",
     "datestamp",
     "Episode",
     "radf_common",
@@ -158,4 +209,12 @@ __all__ = [
     "HlwEpisode",
     "dating_knp",
     "DatingKnpResult",
+    "sim_innov",
+    "sim_vol_garch",
+    "sim_vol_break",
+    "sim_vol_cir",
+    "sim_vol_sv",
+    "sim_fi",
+    "tidy",
+    "augment",
 ]
