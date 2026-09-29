@@ -30,8 +30,8 @@ Y_VEC = np.array(
 )
 MINW = 10
 
-R_SSU_STAT_LAST3 = np.array([-1.4294408532, -1.4956945921, -1.5827171047])
-R_SSU_SADF = 0.8058323864
+R_SSU_STAT_LAST3 = np.array([-1.4260822913, -1.4925456402, -1.5806977666])
+R_SSU_SADF = 0.7473456123
 
 
 def test_ssu_q_lookup():
@@ -83,7 +83,7 @@ def test_ssu_test_formula_matches_brute_force():
 
         sigma2_eps = np.sum(eps_hat**2) / (hi - 2)
         sigma2_eta = np.sum(eta_hat**2) / (hi - 2)
-        sigma2_epseta = np.sum(eps_hat * eta_hat) / (hi - 1)
+        sigma2_epseta = np.sum(eps_hat * eta_hat) / (hi - 2)
         sigma_eps = np.sqrt(sigma2_eps)
         sigma_eta = np.sqrt(sigma2_eta)
         psi_hat = sigma2_epseta / (sigma_eps * sigma_eta)

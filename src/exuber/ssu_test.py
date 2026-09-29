@@ -94,7 +94,8 @@ def ssu_stat_path(ps: dict, hi_idx: np.ndarray) -> np.ndarray:
         + length * mu1_hat * mu2_hat + mu1_hat * omega_hat * sx2
         - delta_hat * sx1d2 + delta_hat * mu2_hat * sx1 + delta_hat * omega_hat * sx1x2
     )
-    sigma2_epseta = sum_eh / (length - 1)
+    # same 1/(floor(T r2) - floor(T r1) - 1) as both variances (page 6)
+    sigma2_epseta = sum_eh / (length - 2)
 
     sigma_eps = np.sqrt(sigma2_eps)
     sigma_eta = np.sqrt(sigma2_eta)
