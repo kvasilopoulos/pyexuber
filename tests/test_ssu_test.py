@@ -14,7 +14,14 @@ import numpy as np
 import pytest
 
 from exuber.radf import psy_minw
-from exuber.ssu_test import ssu_prefix_sums, ssu_q, ssu_stat_path, ssu_test
+from exuber.ssu_test import (
+    gssu_minw,
+    gssu_stat_path,
+    ssu_prefix_sums,
+    ssu_q,
+    ssu_stat_path,
+    ssu_test,
+)
 
 # set.seed(7); y <- round(cumsum(rnorm(40)), 8)
 Y_VEC = np.array(
@@ -32,6 +39,8 @@ MINW = 10
 
 R_SSU_STAT_LAST3 = np.array([-1.4260822913, -1.4925456402, -1.5806977666])
 R_SSU_SADF = 0.7473456123
+R_GSSU_STAT_LAST3 = np.array([0.2603072375, 0.3044020047, 0.5839649062])
+R_GSSU_SUP = 5.0869003395
 
 
 def test_ssu_q_lookup():
@@ -66,24 +75,25 @@ def test_ssu_test_formula_matches_brute_force():
     y = np.cumsum(rng.normal(size=n))
     ps = ssu_prefix_sums(y)
 
-    def brute_force_stat(hi: int) -> float:
-        win = np.arange(hi)
+    def brute_force_stat(hi: int, lo: int = 0) -> float:
+        win = np.arange(lo, hi)
         x1 = y[win]
         d1 = y[win + 1] - x1
         x2 = x1**2
         d2 = d1**2
 
-        A1 = np.column_stack([np.ones(hi), x1])
+        L = hi - lo
+        A1 = np.column_stack([np.ones(L), x1])
         beta1, *_ = np.linalg.lstsq(A1, d1, rcond=None)
         eps_hat = d1 - A1 @ beta1
 
-        A2 = np.column_stack([np.ones(hi), x2])
+        A2 = np.column_stack([np.ones(L), x2])
         beta2, *_ = np.linalg.lstsq(A2, d2, rcond=None)
         eta_hat = d2 - A2 @ beta2
 
-        sigma2_eps = np.sum(eps_hat**2) / (hi - 2)
-        sigma2_eta = np.sum(eta_hat**2) / (hi - 2)
-        sigma2_epseta = np.sum(eps_hat * eta_hat) / (hi - 2)
+        sigma2_eps = np.sum(eps_hat**2) / (L - 2)
+        sigma2_eta = np.sum(eta_hat**2) / (L - 2)
+        sigma2_epseta = np.sum(eps_hat * eta_hat) / (L - 2)
         sigma_eps = np.sqrt(sigma2_eps)
         sigma_eta = np.sqrt(sigma2_eta)
         psi_hat = sigma2_epseta / (sigma_eps * sigma_eta)
@@ -101,6 +111,46 @@ def test_ssu_test_formula_matches_brute_force():
         fast = ssu_stat_path(ps, np.array([hi]))[0]
         manual = brute_force_stat(hi)
         assert fast == pytest.approx(manual, abs=1e-6)
+    for lo in (1, 17, 60):
+        assert ssu_stat_path(ps, 120, lo) == pytest.approx(brute_force_stat(120, lo), abs=1e-6)
+    his = np.arange(60, 71)
+    brute_g = [max(brute_force_stat(h, lo) for lo in range(h - 25 + 1)) for h in his]
+    np.testing.assert_allclose(gssu_stat_path(ps, his, 25), brute_g, atol=1e-6)
+
+
+def test_gssu_matches_r():
+    res = ssu_test(Y_VEC, minw=MINW, type="gssu")
+    np.testing.assert_allclose(res.stat[-3:, 0], R_GSSU_STAT_LAST3, atol=1e-6)
+    assert res.sadf[0] == pytest.approx(R_GSSU_SUP, abs=1e-6)
+    assert res.crit == pytest.approx(5.37)
+    assert gssu_minw(1000) == int(np.floor(1000 * (-0.004 + 2.24 / np.sqrt(1000))))
+    with pytest.raises(ValueError):
+        ssu_test(Y_VEC, type="sadf")
+
+
+def test_table_i_lookups():
+    tab = {
+        "gssu": (4.83, 5.37, 6.81), "ur": (1.16, 1.13, 1.09), "gur": (1.11, 1.10, 1.08),
+        "cs": (1.62, 1.93, 2.57), "gcs": (1.90, 2.20, 2.78),
+        "cssq_sup": (1.19, 1.32, 1.59), "cssq_inf": (-1.21, -1.34, -1.60),
+        "gcssq_sup": (1.60, 1.72, 1.98), "gcssq_inf": (-1.62, -1.72, -1.97),
+    }
+    for name, vals in tab.items():
+        assert [ssu_q(lv, name) for lv in (90, 95, 99)] == pytest.approx(list(vals))
+
+
+# Needs the compiled _core extension (radf() for the SADF/GSADF side) -- CI only.
+def test_union_statistic():
+    from exuber.cv import radf_mc_cv
+    from exuber.radf import radf
+
+    cv = radf_mc_cv(len(Y_VEC), nrep=50, seed=1)
+    r = radf(Y_VEC, lag=0)
+    u = ssu_test(Y_VEC, union=True, cv=cv)
+    assert u.union_stat is not None
+    expected = max(float(np.ravel(r.sadf)[0]) / np.ravel(cv.sadf_cv)[1], u.sadf[0] / 3.30)
+    assert u.union_stat[0] == pytest.approx(expected)
+    assert u.union_crit == pytest.approx(1.13)
 
 
 def test_ssu_test_power_on_stochastic_coefficient_dgp():

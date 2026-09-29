@@ -1,8 +1,9 @@
-"""SSU: stochastic explosive-coefficient test (Kurozumi & Nishi 2025).
-Ported from exuber's R/ssu_test.R -- see docs/volatility-robustness.md
-(root repo) for the formulas, papers and independent validation this
-ports. Standalone: no shared helper module needed (unlike radf_tt/
-radf_sign or radf_kp/radf_sbz).
+"""SSU/GSSU: stochastic explosive-coefficient tests (Kurozumi & Nishi
+2025), with their UR/GUR union-of-rejections procedure. Ported from
+exuber's R/ssu_test.R -- see docs/volatility-robustness.md (root repo)
+for the formulas, papers and independent validation this ports. Every
+critical value is Table I's published asymptotic constant (_KN_TABLE,
+also used by cusum_test.py).
 """
 
 from dataclasses import dataclass
@@ -12,13 +13,29 @@ import numpy as np
 from exuber.radf import _to_2d_array, psy_minw
 
 _SSU_LEVELS = (90, 95, 99)
-_SSU_CRIT = (2.90, 3.30, 4.20)
+# Kurozumi & Nishi (2025) Table I (their 10,000-rep Monte Carlo): SSU at
+# r0 = psy_minw()'s formula, GSSU at r0 = -0.004 + 2.24/sqrt(T), the union
+# scaling constants ur/gur, and the CUSUM-family columns (CSSQ/GCSSQ are
+# two-sided, each tail at alpha/2, so the level-alpha row is the test at alpha).
+_KN_TABLE = {
+    "ssu": (2.90, 3.30, 4.20),
+    "gssu": (4.83, 5.37, 6.81),
+    "ur": (1.16, 1.13, 1.09),
+    "gur": (1.11, 1.10, 1.08),
+    "cs": (1.62, 1.93, 2.57),
+    "gcs": (1.90, 2.20, 2.78),
+    "cssq_sup": (1.19, 1.32, 1.59),
+    "cssq_inf": (-1.21, -1.34, -1.60),
+    "gcssq_sup": (1.60, 1.72, 1.98),
+    "gcssq_inf": (-1.62, -1.72, -1.97),
+}
 
 
-def ssu_q(sig_lvl: float) -> float:
-    """Kurozumi & Nishi (2025) Table I's published SSU asymptotic critical
-    value (their own 10,000-rep Monte Carlo) -- no simulation needed."""
-    for lvl, crit in zip(_SSU_LEVELS, _SSU_CRIT, strict=True):
+def ssu_q(sig_lvl: float, stat: str = "ssu") -> float:
+    """Kurozumi & Nishi (2025) Table I's published asymptotic critical
+    value for `stat` (their own 10,000-rep Monte Carlo) -- no simulation
+    needed."""
+    for lvl, crit in zip(_SSU_LEVELS, _KN_TABLE[stat], strict=True):
         if abs(sig_lvl - lvl) < 1e-8:
             return crit
     raise ValueError(
@@ -52,16 +69,19 @@ def ssu_prefix_sums(y: np.ndarray) -> dict:
     }
 
 
-def ssu_stat_path(ps: dict, hi_idx: np.ndarray) -> np.ndarray:
-    """t^{omega,c}_{0,r2} (SSU's own r1 = 0, fixed) for every candidate r2
-    in `hi_idx` -- see exuber's R/ssu_test.R for the derivation of the
-    bilinear cross-moment expansion this implements."""
+def ssu_stat_path(ps: dict, hi_idx: np.ndarray, lo=0) -> np.ndarray:
+    """t^{omega,c}_{r1,r2} for every window (lo, hi] of regression pairs,
+    `lo`/`hi_idx` broadcast against each other: lo = 0 is SSU's own
+    single-recursion path, a grid of (lo, hi) pairs is GSSU's -- see
+    exuber's R/ssu_test.R for the derivation of the bilinear cross-moment
+    expansion this implements."""
     hi_idx = np.asarray(hi_idx)
+    lo = np.asarray(lo)
 
     def s(name: str) -> np.ndarray:
-        return ps[name][hi_idx]
+        return ps[name][hi_idx] - ps[name][lo]
 
-    length = hi_idx.astype(float)
+    length = (hi_idx - lo).astype(float)
 
     sx1 = s("x1")
     sx1x1 = s("x1_2")
@@ -109,6 +129,18 @@ def ssu_stat_path(ps: dict, hi_idx: np.ndarray) -> np.ndarray:
     return (t_omega - correction) / np.sqrt(1 - psi_hat**2)
 
 
+def gssu_stat_path(ps: dict, hi_idx: np.ndarray, minw: int) -> np.ndarray:
+    """GSSU's recursive path: for each end point hi, the sup over window
+    starts lo = 0, ..., hi - minw (bsadf's shape); its max is GSSU."""
+    return np.array([ssu_stat_path(ps, hi, np.arange(hi - minw + 1)).max() for hi in hi_idx])
+
+
+def gssu_minw(n: int) -> int:
+    """Kurozumi & Nishi's GSSU minimum window, r0 = -0.004 + 2.24/sqrt(T)
+    (psy_minw()'s formula oversizes GSSU)."""
+    return int(np.floor(n * (-0.004 + 2.24 / np.sqrt(n))))
+
+
 @dataclass
 class SsuTestResult:
     """Output of `ssu_test()`: the recursive SSU statistic path, its
@@ -123,33 +155,73 @@ class SsuTestResult:
     n: int
     sig_lvl: float
     series_names: list[str] | None = None
+    type: str = "ssu"
+    adf_stat: np.ndarray | None = None  # SADF/GSADF, union only
+    union_stat: np.ndarray | None = None
+    union_crit: float | None = None
+    union_detected: np.ndarray | None = None
 
 
-def ssu_test(data, minw: int | None = None, sig_lvl: float = 95) -> SsuTestResult:
-    """Stochastic unit root bubble test (SSU), Kurozumi & Nishi (2025):
-    tests for a *stochastic* (rather than deterministic) unit root in the
-    squared first differences, bias-corrected against its dependence on
-    the correlation with the plain ADF regression's innovations. Only the
-    single-recursion SSU statistic is implemented (not GSSU, CUSUM/
-    CUSUM-SQ, or the union-of-rejections procedure -- see
-    docs/volatility-robustness.md, root repo, for the minimum-viable-
-    subset scoping). The critical value is Table I's published constant,
-    no simulation needed."""
+def ssu_test(
+    data,
+    minw: int | None = None,
+    sig_lvl: float = 95,
+    type: str = "ssu",
+    union: bool = False,
+    cv=None,
+) -> SsuTestResult:
+    """Stochastic unit root bubble tests, Kurozumi & Nishi (2025): test for
+    a *stochastic* (rather than deterministic) unit root in the squared
+    first differences, bias-corrected against its dependence on the
+    correlation with the plain ADF regression's innovations.
+
+    type="ssu" is the single recursion (SADF's shape, minw = psy_minw(n));
+    type="gssu" also sup's over window starts (GSADF's shape, minw =
+    floor(n * (-0.004 + 2.24/sqrt(n))), the paper's own). union=True adds
+    the paper's union of rejections, UR = max(SADF/cv_sadf, SSU/cv_ssu)
+    (GUR with GSADF/GSSU) against the published ur/gur constant -- the
+    SADF/GSADF side is radf(data, lag=0) against `cv` (a RadfCv, default
+    radf_crit(n)); it needs the compiled `_core` extension. All critical
+    values are Table I's published asymptotic constants.
+    """
+    if type not in ("ssu", "gssu"):
+        raise ValueError("type must be 'ssu' or 'gssu'")
     x, columns = _to_2d_array(data)
     n, nc = x.shape
-    minw = minw if minw is not None else psy_minw(n)
-    crit = ssu_q(sig_lvl)
+    if minw is None:
+        minw = psy_minw(n) if type == "ssu" else gssu_minw(n)
+    crit = ssu_q(sig_lvl, type)
 
     hi_idx = np.arange(minw, n)  # R: minw:(n - 1L), 1-indexed -> same values here
     stat = np.empty((len(hi_idx), nc))
     for j in range(nc):
         ps = ssu_prefix_sums(x[:, j])
-        stat[:, j] = ssu_stat_path(ps, hi_idx)
+        if type == "ssu":
+            stat[:, j] = ssu_stat_path(ps, hi_idx)
+        else:
+            stat[:, j] = gssu_stat_path(ps, hi_idx, minw)
 
     sadf = stat.max(axis=0)
     detected = sadf > crit
-
-    return SsuTestResult(
+    res = SsuTestResult(
         stat=stat, sadf=sadf, crit=crit, detected=detected,
-        minw=minw, n=n, sig_lvl=sig_lvl, series_names=columns,
+        minw=minw, n=n, sig_lvl=sig_lvl, series_names=columns, type=type,
     )
+
+    if union:
+        from exuber.crit import radf_crit
+        from exuber.radf import radf
+
+        r = radf(x, lag=0)
+        if cv is None:
+            cv = radf_crit(n)
+        if cv is None:
+            raise ValueError(f"no precomputed critical values for n = {n}; pass `cv`")
+        k = _SSU_LEVELS.index(int(round(sig_lvl)))
+        adf_stat = np.asarray(r.sadf if type == "ssu" else r.gsadf, dtype=float).reshape(nc)
+        cv_adf = np.ravel(cv.sadf_cv if type == "ssu" else cv.gsadf_cv)[k]
+        res.adf_stat = adf_stat
+        res.union_stat = np.maximum(adf_stat / cv_adf, sadf / crit)
+        res.union_crit = ssu_q(sig_lvl, "ur" if type == "ssu" else "gur")
+        res.union_detected = res.union_stat > res.union_crit
+    return res

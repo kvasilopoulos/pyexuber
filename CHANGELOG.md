@@ -19,6 +19,9 @@ First PyPI release.
 - `tidy()` for critical values and distributions (`RadfCv`, `RadfSbCv`,
   `RadfDistr`, `RadfSbDistr`), `augment()` for critical values,
   `tidy_join()` and `augment_join()`, matching R's row/column layout.
+- `ssu_test(type="gssu", union=True)` and `cusum_test()`: Kurozumi &
+  Nishi (2025)'s GSSU, UR/GUR union of rejections and CS/GCS/CSSQ/GCSSQ
+  tests, all against the paper's published Table I critical values.
 - `sim_psy1`, `sim_psy2`, `sim_ps1`, `sim_ps2`, `sim_blan`, `sim_evans`,
   `sim_div`: bubble DGP simulators.
 - Requires Python >= 3.10. Wheels for Linux x86_64, macOS 15+ (arm64 and
