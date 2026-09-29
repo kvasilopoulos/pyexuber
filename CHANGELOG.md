@@ -11,6 +11,8 @@ First PyPI release.
 - `radf_mc_cv`/`radf_mc_distr`, `radf_wb_cv`/`radf_wb_distr` (HLST wild
   bootstrap): locally simulated critical values and distributions.
 - `datestamp()`: explosive-episode start/peak/end/duration.
+- `monitor(boundary="bootstrap")`: Phillips & Shi (2020)'s wild-bootstrap
+  monitoring boundary, via `radf_wb_ps_cv()` on the training window.
 - `diagnostics()`/`summary()`: per-series reject/not-reject verdict and the
   statistic-vs-critical-value table, ported from R's `diagnostics()`/
   `summary()` for `radf_obj` (verified against R's output).
