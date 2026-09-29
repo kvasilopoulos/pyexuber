@@ -50,9 +50,11 @@ Scope so far:
     bubble dating): dating_knp.py.
   - tidy()/augment(): DataFrame-producing accessors for a RadfResult
     (radf_obj's methods only, not radf_cv/radf_distr's, and not
-    tidy_join/augment_join/summary/diagnostics -- see tidy.py's module
-    docstring). Needs pandas (`pip install pyexuber[pandas]`), lazily
-    imported.
+    tidy_join/augment_join -- see tidy.py's module docstring). Needs
+    pandas (`pip install pyexuber[pandas]`), lazily imported.
+  - diagnostics()/summary(): per-series reject/not-reject verdicts and the
+    statistic-vs-critical-value table: diagnostics.py. summary() needs
+    pandas; diagnostics() doesn't.
 
 Only the callable functions above are exported here. Each one's return
 type (RadfCv, DatingHlsResult, MonitorResult, ...) is a plain dataclass
@@ -70,8 +72,7 @@ Not yet ported (deferred, not silently dropped):
     sim_common, sim_falsebubble, sim_mar, sim_msbubble, sim_tree,
     sim_dgp1/2 -- larger, more involved DGPs than the innovation
     generators above, left for later.
-  - tidy()/augment() for radf_cv/radf_distr, tidy_join()/augment_join(),
-    summary(), diagnostics().
+  - tidy()/augment() for radf_cv/radf_distr, tidy_join()/augment_join().
   - QPSY (monitor_quantile()'s double-recursion sibling): O(T^2) QR fits,
     a materially larger cost class than QPWY's O(T), not attempted.
 
@@ -104,6 +105,7 @@ from exuber.dating_hls import dating_hls
 from exuber.dating_hlw import dating_hlw
 from exuber.dating_knp import dating_knp
 from exuber.dating_pdc import dating_pdc
+from exuber.diagnostics import diagnostics, summary
 from exuber.lbi_test import lbi_test, monitor_lbi
 from exuber.monitor import monitor
 from exuber.monitor_cusum import monitor_cusum
@@ -154,4 +156,6 @@ __all__ = [
     "dating_knp",
     "tidy",
     "augment",
+    "diagnostics",
+    "summary",
 ]

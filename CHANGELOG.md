@@ -11,6 +11,9 @@ First PyPI release.
 - `radf_mc_cv`/`radf_mc_distr`, `radf_wb_cv`/`radf_wb_distr` (HLST wild
   bootstrap): locally simulated critical values and distributions.
 - `datestamp()`: explosive-episode start/peak/end/duration.
+- `diagnostics()`/`summary()`: per-series reject/not-reject verdict and the
+  statistic-vs-critical-value table, ported from R's `diagnostics()`/
+  `summary()` for `radf_obj` (verified against R's output).
 - `sim_psy1`, `sim_psy2`, `sim_ps1`, `sim_ps2`, `sim_blan`, `sim_evans`,
   `sim_div`: bubble DGP simulators.
 - Requires Python >= 3.10. Wheels for Linux x86_64, macOS 15+ (arm64 and
