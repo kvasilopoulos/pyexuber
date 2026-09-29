@@ -1,8 +1,10 @@
-"""Tidy accessors for RadfResult. Ports exuber's R/radf-tidiers.R
-tidy.radf_obj()/augment.radf_obj() (the radf_obj methods only -- the
-radf_cv/radf_distr tidiers, tidy_join()/augment_join(), and
-summary()/diagnostics() built on top of them are not ported here, see
-__init__.py's module docstring).
+"""Tidy accessors. Ports exuber's R/radf-tidiers.R: tidy()/augment() for
+radf_obj, tidy() for radf_cv/radf_distr, and tidy_join(). augment() for
+radf_cv and augment_join() are not ported yet.
+
+tidy() dispatches on its argument's type like R's S3 generic. Monte
+Carlo vs wild bootstrap is told apart by shape (shared (3,) critical
+values vs per-series (nc, 3)), not by class, since both are RadfCv here.
 
 Divergence from R: RadfResult doesn't carry the original input data or a
 date index (radf() never stored either -- see radf.py), so augment()'s
@@ -19,10 +21,15 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from exuber.cv import RadfCv, RadfDistr, RadfSbCv, RadfSbDistr
+
 if TYPE_CHECKING:
     import pandas as pd
 
     from exuber.radf import RadfResult
+
+SIGS = ("90", "95", "99")
+STATS = ("adf", "sadf", "gsadf")
 
 
 def _require_pandas():
@@ -35,18 +42,26 @@ def _require_pandas():
     return pd
 
 
-def _series_names(result: "RadfResult") -> list[str]:
-    return result.series_names or [f"series{i + 1}" for i in range(len(result.adf))]
+def _series_names(result, nc: int | None = None) -> list[str]:
+    nc = len(result.adf) if nc is None else nc
+    return result.series_names or [f"series{i + 1}" for i in range(nc)]
 
 
-def tidy(result: "RadfResult", format: str = "wide", panel: bool = False) -> "pd.DataFrame":
-    """Port of R's tidy.radf_obj(): the scalar adf/sadf/gsadf test
-    statistics as a tidy DataFrame, one row per series (`format="wide"`)
-    or one row per series-statistic pair (`format="long"`). `panel=True`
-    returns the single panel gsadf_panel statistic instead."""
+def tidy(result, format: str = "wide", panel: bool = False) -> "pd.DataFrame":
+    """Port of R's tidy(). For a RadfResult (tidy.radf_obj): the scalar
+    adf/sadf/gsadf statistics, one row per series (`format="wide"`) or per
+    series-statistic pair (`format="long"`); `panel=True` returns the
+    panel gsadf_panel statistic instead. For a RadfCv/RadfSbCv
+    (tidy.radf_cv): the 90/95/99% critical values. For a
+    RadfDistr/RadfSbDistr (tidy.radf_distr): the simulated statistics,
+    one row per replication (`format` is ignored)."""
     if format not in ("wide", "long"):
         raise ValueError('format must be "wide" or "long"')
     pd = _require_pandas()
+    if isinstance(result, (RadfCv, RadfSbCv)):
+        return _tidy_cv(pd, result, format)
+    if isinstance(result, (RadfDistr, RadfSbDistr)):
+        return _tidy_distr(pd, result)
 
     if panel:
         if format == "wide":
@@ -126,3 +141,70 @@ def augment(
         df["stat"] = pd.Categorical(df["stat"], categories=["badf", "bsadf"])
         df = df.sort_values(["key", "id", "stat"], kind="stable").reset_index(drop=True)
     return df
+
+
+def _tidy_cv(pd, cv: "RadfCv | RadfSbCv", format: str) -> "pd.DataFrame":
+    if isinstance(cv, RadfSbCv):
+        df = pd.DataFrame({"id": "panel", "sig": SIGS, "gsadf_panel": cv.gsadf_panel_cv})
+        if format == "long":
+            df = df.assign(stat="gsadf_panel").rename(columns={"gsadf_panel": "crit"})
+            df = df[["id", "stat", "sig", "crit"]]
+        return df
+
+    arrs = {stat: np.asarray(getattr(cv, f"{stat}_cv")) for stat in STATS}
+    if arrs["adf"].ndim == 1:  # Monte Carlo: shared across series
+        if format == "wide":
+            return pd.DataFrame({"sig": SIGS, **arrs})
+        return pd.DataFrame(
+            [(stat, sig, arrs[stat][k]) for stat in STATS for k, sig in enumerate(SIGS)],
+            columns=["stat", "sig", "crit"],
+        )
+
+    names = _series_names(cv, arrs["adf"].shape[0])  # bootstrap: (nc, 3), per series
+    if format == "wide":
+        return pd.DataFrame(
+            [(name, sig, *(arrs[stat][j, k] for stat in STATS))
+             for k, sig in enumerate(SIGS) for j, name in enumerate(names)],
+            columns=["id", "sig", *STATS],
+        )
+    return pd.DataFrame(
+        [(name, stat, sig, arrs[stat][j, k])
+         for stat in STATS for k, sig in enumerate(SIGS) for j, name in enumerate(names)],
+        columns=["id", "stat", "sig", "crit"],
+    )
+
+
+def _tidy_distr(pd, distr: "RadfDistr | RadfSbDistr") -> "pd.DataFrame":
+    if isinstance(distr, RadfSbDistr):
+        return pd.DataFrame({"gsadf_panel": distr.gsadf_panel_distr})
+    arrs = {stat: np.asarray(getattr(distr, f"{stat}_distr")) for stat in STATS}
+    if arrs["adf"].ndim == 1:  # Monte Carlo
+        return pd.DataFrame(arrs)
+    nrep, nc = arrs["adf"].shape  # bootstrap: one column per series, stacked
+    names = [f"series{i + 1}" for i in range(nc)]
+    return pd.DataFrame(
+        {"id": np.repeat(names, nrep), **{stat: a.T.ravel() for stat, a in arrs.items()}}
+    )
+
+
+def tidy_join(result: "RadfResult", cv: "RadfCv | RadfSbCv") -> "pd.DataFrame":
+    """Port of R's tidy_join.radf_obj(): each statistic next to its
+    critical values, one row per series-statistic-significance triple
+    (id, stat, tstat, sig, crit). With a sieve-bootstrap cv, the panel
+    gsadf_panel statistic only."""
+    pd = _require_pandas()
+    cols = ["id", "stat", "tstat", "sig", "crit"]
+    if isinstance(cv, RadfSbCv):
+        return pd.DataFrame(
+            [("panel", "gsadf_panel", result.gsadf_panel, sig, cv.gsadf_panel_cv[k])
+             for k, sig in enumerate(SIGS)],
+            columns=cols,
+        )
+    rows = []
+    for j, name in enumerate(_series_names(result)):
+        for stat in STATS:
+            crit = np.asarray(getattr(cv, f"{stat}_cv"))
+            crit = crit if crit.ndim == 1 else crit[j]
+            tstat = getattr(result, stat)[j]
+            rows += [(name, stat, tstat, sig, crit[k]) for k, sig in enumerate(SIGS)]
+    return pd.DataFrame(rows, columns=cols)
