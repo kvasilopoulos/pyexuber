@@ -12,7 +12,12 @@ import numpy as np
 
 from exuber.datestamp import Episode
 from exuber.dating_hls import dating_hls
-from exuber.dating_hlw import _dating_hlw_from_episodes, _hlw_local_to_global, dating_hlw
+from exuber.dating_hlw import (
+    _dating_hlw_from_episodes,
+    _hlw_local_to_global,
+    _join_runs,
+    dating_hlw,
+)
 
 # -- dating_hlw() -----------------------------------------------------------
 
@@ -117,3 +122,12 @@ def test_dating_hlw_h0_returns_zero_windows():
     y = 100 + np.cumsum(rng.normal(size=150))
     out = dating_hlw(y, trim=0.1, nboot=199, seed=1)
     assert out.episodes["series1"] == []
+
+
+def test_join_runs_matches_r_hlw_join_runs():
+    """Same cases as exuber's tests/testthat/test-hlw.R (ends exclusive)."""
+    assert _join_runs([10, 22, 60], [20, 30, 70], 3, 5) == ([10, 60], [30, 70])
+    assert _join_runs([10, 24], [20, 30], 3, 5)[0] == [10, 24]  # gap of 4 too wide
+    assert _join_runs([10, 22], [20, 25], 3, 5)[0] == [10, 22]  # right run too short
+    assert _join_runs([1, 12, 23], [10, 21, 30], 3, 5) == ([1], [30])  # chains collapse
+    assert _join_runs([10, 22], [20, 30], 0, 5)[0] == [10, 22]  # join=0 disables

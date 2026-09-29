@@ -13,6 +13,8 @@ First PyPI release.
 - `datestamp()`: explosive-episode start/peak/end/duration.
 - `monitor(boundary="bootstrap")`: Phillips & Shi (2020)'s wild-bootstrap
   monitoring boundary, via `radf_wb_ps_cv()` on the training window.
+- `dating_hlw(join=3)`: HLW's run-joining rule for fragmented step-1
+  detections, matching exuber's `dating_hlw()`.
 - `sim_tree`, `sim_mar`, `sim_common`, `sim_coexplosive`, `sim_msbubble`,
   `sim_falsebubble`: the remaining 2026-08 bubble DGPs (in `exuber.sim`).
   Extra R attributes come back via `return_*` flags; multi-series DGPs

@@ -40,6 +40,29 @@ def _hlw_local_to_global(local_tau: int, s0: int) -> int:
     return s0 + local_tau + 1
 
 
+def _join_runs(
+    starts: list[int], ends: list[int], max_gap: int, min_len: float
+) -> tuple[list[int], list[int]]:
+    """HLW's run-joining rule for step-1 fragmentation: if up to `max_gap`
+    non-rejections separate two explosive runs that each last at least
+    `min_len` (their ln(T)), treat them as one episode. Ends are exclusive
+    (first non-explosive position), as in datestamp(). Port of R's
+    hlw_join_runs()."""
+    if len(starts) < 2 or max_gap <= 0:
+        return list(starts), list(ends)
+    out_s: list[int] = []
+    out_e: list[int] = []
+    s, e = starts[0], ends[0]
+    for sk, ek in zip(starts[1:], ends[1:], strict=True):
+        if sk - e <= max_gap and e - s >= min_len and ek - sk >= min_len:
+            e = ek
+        else:
+            out_s.append(s)
+            out_e.append(e)
+            s, e = sk, ek
+    return [*out_s, s], [*out_e, e]
+
+
 @dataclass
 class HlwEpisode:
     model: int  # 2 or 4 for every non-final window, 1-4 for the final one
@@ -49,7 +72,7 @@ class HlwEpisode:
 
 
 def _dating_hlw_from_episodes(
-    y: np.ndarray, episodes: list[Episode], n: int, trim: float
+    y: np.ndarray, episodes: list[Episode], n: int, trim: float, join: int = 3
 ) -> list[HlwEpisode]:
     """Step 2 (window construction + per-window HLS fitting + sequential
     start adjustment), given a single series' already step-1-detected
@@ -57,12 +80,13 @@ def _dating_hlw_from_episodes(
     no radf()/datestamp()/the C++ extension needed (same split as
     radf_recovery's _recovery_dates_from_bsadf()).
     """
-    nhat = len(episodes)
-    if nhat == 0:
+    if not episodes:
         return []
 
     starts = [ep.start for ep in episodes]
     ends = [ep.end if ep.end is not None else n for ep in episodes]
+    starts, ends = _join_runs(starts, ends, join, math.log(n))
+    nhat = len(starts)
 
     e = [0] * nhat
     for jj in range(nhat):
@@ -115,6 +139,7 @@ def dating_hlw(
     min_duration: int | None = None,
     nboot: int = 199,
     seed: int | None = None,
+    join: int = 3,
 ) -> DatingHlwResult:
     """Multi-bubble SSR/BIC dating (Harvey, Leybourne & Whitehouse 2020).
     Extends dating_hls() to series with more than one explosive episode:
@@ -132,6 +157,10 @@ def dating_hlw(
     dating_hls(). Step 1's PSY detection does use a wild bootstrap
     critical value (cv/nboot/seed below, defaulting to radf_wb_cv())
     only to locate the preliminary episode windows.
+
+    `join`: HLW's run-joining rule for fragmented step-1 detections -- two
+    runs separated by at most `join` non-rejections, each at least ln(T)
+    long, count as one episode. Default 3, the paper's value; 0 disables.
     """
     x, columns = _to_2d_array(data)
     n, nc = x.shape
@@ -146,6 +175,6 @@ def dating_hlw(
 
     results: dict[str, list[HlwEpisode]] = {}
     for j, name in enumerate(names):
-        results[name] = _dating_hlw_from_episodes(x[:, j], ds.get(name, []), n, trim)
+        results[name] = _dating_hlw_from_episodes(x[:, j], ds.get(name, []), n, trim, join)
 
     return DatingHlwResult(episodes=results, series_names=names, trim=trim, minw=minw, n=n)
