@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pytest
 
-from exuber.dating_knp import _knp_find_break, dating_knp
+from exuber.dating_knp import _knp_dp, _knp_find_break, dating_knp
 
 # -- dating_knp() -------------------------------------------------------
 
@@ -99,3 +99,66 @@ def test_dating_knp_omission_correction_reproduces_theorem_1_and_2():
 
     assert bias_naive_t2 < bias_naive_t1
     assert bias_om_t1 < bias_naive_t1 / 2
+
+
+# -- KNP's multi-bubble dynamic programme (Section 3.2) -------------------
+
+
+def _knp_brute(y: np.ndarray, breaks: int, trim: float, omit: bool) -> tuple[list[int], float]:
+    n1 = len(y) - 1
+    x, z = y[:n1], np.diff(y)
+    k_min = max(2, math.ceil(trim * n1))
+
+    def seg(j: int, lo: int, hi: int) -> float:
+        if j % 2 == 0:
+            return _ols_ssr(x[lo:hi], z[lo:hi])
+        return float(np.sum(z[lo:hi] ** 2) - (z[lo] ** 2 if omit and j > 1 else 0.0))
+
+    best: tuple[list[int], float] = ([], math.inf)
+
+    def rec(taus: list[int]) -> None:
+        nonlocal best
+        if len(taus) == breaks:
+            ends = [0, *taus, n1]
+            ssr = sum(seg(r + 1, ends[r], ends[r + 1]) for r in range(breaks + 1))
+            if ssr < best[1]:
+                best = (taus, ssr)
+            return
+        start = (taus[-1] if taus else 0) + k_min
+        for t in range(start, n1 - (breaks - len(taus)) * k_min + 1):
+            rec([*taus, t])
+
+    rec([])
+    return best
+
+
+def test_knp_dp_two_breaks_reproduces_single_bubble_search():
+    y = np.cumsum(np.random.default_rng(11).normal(size=80))
+    for omit in (True, False):
+        tau, ssr = _knp_dp(y, 2, 0.05, omit)
+        t1, t2, fssr = _knp_find_break(y, 0.05, omit)
+        assert tau == [t1, t2]
+        assert ssr == pytest.approx(fssr, abs=1e-10)
+
+
+@pytest.mark.parametrize("breaks", [3, 4])
+@pytest.mark.parametrize("omit", [True, False])
+def test_knp_dp_matches_brute_force(breaks, omit):
+    y = np.cumsum(np.random.default_rng(12).normal(size=28))
+    tau, ssr = _knp_dp(y, breaks, 0.1, omit)
+    b_tau, b_ssr = _knp_brute(y, breaks, 0.1, omit)
+    assert tau == b_tau
+    assert ssr == pytest.approx(b_ssr, abs=1e-8)
+
+
+def test_dating_knp_multi_bubble_matches_r():
+    from test_ssu_test import Y_VEC
+
+    r3 = dating_knp(Y_VEC, trim=0.1, breaks=3)
+    np.testing.assert_array_equal(r3.origination[:, 0], [9, 19])
+    assert r3.collapse[0, 0] == 14 and np.isnan(r3.collapse[1, 0])
+    np.testing.assert_allclose(r3.delta[:, 0], [0.8410590945, 0.5993879191], atol=1e-8)
+    r4 = dating_knp(Y_VEC, trim=0.1, breaks=4)
+    np.testing.assert_array_equal(r4.collapse[:, 0], [14, 23])
+    np.testing.assert_allclose(r4.delta[:, 0], [0.8410590945, 1.0818531838], atol=1e-8)
+    assert dating_knp(Y_VEC).origination.shape == (1,)

@@ -1,4 +1,4 @@
-"""Bias-corrected single-bubble dating (Kejriwal, Nguyen & Perron 2025).
+"""Bias-corrected bubble dating (Kejriwal, Nguyen & Perron 2025).
 Ported from exuber's R/dating_knp.R (see docs/dating-and-root-
 inference.md in the umbrella repo for the full methodology and
 validation record).
@@ -14,10 +14,11 @@ omits the single squared residual at the candidate collapse-date
 observation from the objective before minimising -- no new regression,
 just subtracting one already-available squared term. Unlike HLS's Model
 2/3 fit, KNP's candidate set imposes no sign constraint on the fitted
-"peak". The multi-bubble Bai-Perron/Perron-Qu dynamic-programming
-extension (KNP's Section 3) is not implemented -- same scoping decision
-as dating_hlw()'s own unimplemented run-joining heuristic (genuinely new
-algorithmic machinery, not a small addition to already-shipped code).
+"peak". breaks > 2 uses KNP's Section 3 dynamic programme (_knp_dp):
+regimes alternate unit root / explosive, every unit-root regime after a
+collapse omits its first residual, and every segment SSR is O(1) from the
+HLS prefix sums, so the DP returns the exact global minimiser in
+O(m T^2). The number of breaks is taken as given, as in the paper.
 
 Indexing note: like dating_pdc()/dating_hls()/dating_hlw(), dating_knp()'s
 origination/collapse are 1-indexed row positions into `data` -- NOT the
@@ -64,19 +65,65 @@ def _knp_find_break(
     return best_tau1, best_tau2, best_ssr
 
 
+def _knp_dp(
+    y: np.ndarray, breaks: int, trim: float = 0.05, omit: bool = True
+) -> tuple[list[int] | None, float]:
+    """KNP's m-break dynamic programme (their Section 3.2). Pairs are
+    i-indexed 1..n1; regime j covers (tau_{j-1}, tau_j]; odd j is a unit-root
+    regime (cost sum z^2, minus its first term after a collapse when
+    `omit`), even j an explosive one (OLS SSR with intercept). Every
+    regime has at least k_min pairs. Returns (tau_1..tau_m, SSR)."""
+    ps = _hls_prefix_sums(y)
+    n1 = ps.n1
+    k_min = max(2, math.ceil(trim * n1))
+    nreg = breaks + 1
+    if nreg * k_min > n1:
+        return None, math.inf
+
+    def cost(j: int, lo, hi):
+        if j % 2 == 0:
+            return _hls_segment_ssr(ps, lo, hi, True)
+        ssr = _hls_segment_ssr(ps, lo, hi, False)
+        if omit and j > 1:
+            ssr = ssr - (ps.cz2[np.asarray(lo) + 1] - ps.cz2[lo])
+        return ssr
+
+    v = np.full((nreg + 1, n1 + 1), np.inf)
+    arg = np.zeros((nreg + 1, n1 + 1), dtype=int)
+    hi1 = np.arange(k_min, n1 + 1)
+    v[1, hi1] = cost(1, 0, hi1)
+    for j in range(2, nreg + 1):
+        his = [n1] if j == nreg else range(j * k_min, n1 - (nreg - j) * k_min + 1)
+        for hi in his:
+            lo = np.arange((j - 1) * k_min, hi - k_min + 1)
+            cand = v[j - 1, lo] + cost(j, lo, hi)
+            k = int(np.argmin(cand))
+            v[j, hi] = cand[k]
+            arg[j, hi] = lo[k]
+    tau = [0] * breaks
+    hi = n1
+    for j in range(nreg, 1, -1):
+        hi = int(arg[j, hi])
+        tau[j - 2] = hi
+    return tau, float(v[nreg, n1])
+
+
 @dataclass
 class DatingKnpResult:
-    origination: np.ndarray  # R-bit-for-bit 1-indexed position, NaN if not found
-    collapse: np.ndarray
+    # R-bit-for-bit 1-indexed positions, NaN if not found: (nc,) for one
+    # bubble, (n_bubbles, nc) for more (R returns vectors vs. matrices alike)
+    origination: np.ndarray
+    collapse: np.ndarray  # NaN for a bubble still running at the sample end
     delta: np.ndarray  # fitted explosive AR coefficient (1 + slope)
     series_names: list[str] | None
     trim: float
     omit: bool
     n: int
+    breaks: int = 2
 
 
-def dating_knp(data, trim: float = 0.05, omit: bool = True) -> DatingKnpResult:
-    """Bias-corrected single-bubble dating (Kejriwal, Nguyen & Perron 2025).
+def dating_knp(data, trim: float = 0.05, omit: bool = True, breaks: int = 2) -> DatingKnpResult:
+    """Bias-corrected bubble dating (Kejriwal, Nguyen & Perron 2025).
     Dates a single bubble episode (origination, collapse) by minimising a
     residual-omission-corrected sum of squared residuals over a
     three-regime model (unit root, explosive, unit root resuming from a
@@ -91,28 +138,44 @@ def dating_knp(data, trim: float = 0.05, omit: bool = True) -> DatingKnpResult:
     (Theorem 1) -- kept mainly to demonstrate the correction's effect,
     not for practical dating. Needs no critical values -- this is
     residual-sum-of-squares model selection, not a hypothesis test.
+
+    breaks is the number of break dates (the paper's m): 2 per bubble, an
+    odd number letting the last bubble run to the sample end. breaks > 2
+    uses KNP's dynamic programme (exact global minimiser, O(breaks * n^2)).
     """
+    if breaks < 1:
+        raise ValueError("breaks must be a positive integer")
     x, columns = _to_2d_array(data)
     n, nc = x.shape
     names = columns or [f"series{i + 1}" for i in range(nc)]
 
-    origination = np.full(nc, np.nan)
-    collapse = np.full(nc, np.nan)
-    delta = np.full(nc, np.nan)
+    nb = math.ceil(breaks / 2)
+    origination = np.full((nb, nc), np.nan)
+    collapse = np.full((nb, nc), np.nan)
+    delta = np.full((nb, nc), np.nan)
 
     for j in range(nc):
         y = x[:, j]
         ps = _hls_prefix_sums(y)
-        tau1, tau2, _ssr = _knp_find_break(y, trim, omit)
-        if tau1 is not None:
-            origination[j] = tau1 + 1
-        if tau2 is not None:
-            collapse[j] = tau2 + 1
-        if tau1 is not None and tau2 is not None:
-            _a, b = _hls_segment_coef(ps, tau1, tau2)
-            delta[j] = b + 1
+        if breaks == 2:
+            tau1, tau2, _ssr = _knp_find_break(y, trim, omit)
+            tau = None if tau1 is None or tau2 is None else [tau1, tau2]
+        else:
+            tau, _ssr = _knp_dp(y, breaks, trim, omit)
+        if tau is None:
+            continue
+        ends = [*tau, ps.n1]
+        for b in range(nb):
+            t1, t2 = ends[2 * b], ends[2 * b + 1]
+            origination[b, j] = t1 + 1
+            if 2 * b + 2 <= breaks:
+                collapse[b, j] = t2 + 1
+            _a, slope = _hls_segment_coef(ps, t1, t2)
+            delta[b, j] = slope + 1
 
+    if nb == 1:
+        origination, collapse, delta = origination[0], collapse[0], delta[0]
     return DatingKnpResult(
         origination=origination, collapse=collapse, delta=delta,
-        series_names=names, trim=trim, omit=omit, n=n,
+        series_names=names, trim=trim, omit=omit, n=n, breaks=breaks,
     )

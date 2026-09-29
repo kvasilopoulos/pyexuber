@@ -22,6 +22,8 @@ First PyPI release.
 - `ssu_test(type="gssu", union=True)` and `cusum_test()`: Kurozumi &
   Nishi (2025)'s GSSU, UR/GUR union of rejections and CS/GCS/CSSQ/GCSSQ
   tests, all against the paper's published Table I critical values.
+- `dating_knp(breaks=m)`: Kejriwal, Nguyen & Perron (2025)'s multi-bubble
+  dynamic programme (exact global minimiser, O(m n^2)).
 - `sim_psy1`, `sim_psy2`, `sim_ps1`, `sim_ps2`, `sim_blan`, `sim_evans`,
   `sim_div`: bubble DGP simulators.
 - Requires Python >= 3.10. Wheels for Linux x86_64, macOS 15+ (arm64 and
