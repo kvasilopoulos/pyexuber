@@ -15,8 +15,8 @@ First PyPI release.
   statistic-vs-critical-value table, ported from R's `diagnostics()`/
   `summary()` for `radf_obj` (verified against R's output).
 - `tidy()` for critical values and distributions (`RadfCv`, `RadfSbCv`,
-  `RadfDistr`, `RadfSbDistr`) and `tidy_join()`, matching R's row/column
-  layout.
+  `RadfDistr`, `RadfSbDistr`), `augment()` for critical values,
+  `tidy_join()` and `augment_join()`, matching R's row/column layout.
 - `sim_psy1`, `sim_psy2`, `sim_ps1`, `sim_ps2`, `sim_blan`, `sim_evans`,
   `sim_div`: bubble DGP simulators.
 - Requires Python >= 3.10. Wheels for Linux x86_64, macOS 15+ (arm64 and

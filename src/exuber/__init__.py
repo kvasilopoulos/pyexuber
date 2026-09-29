@@ -48,8 +48,9 @@ Scope so far:
     wrapper around dating_hls()): dating_hlw.py.
   - dating_knp() (Kejriwal, Nguyen & Perron 2025 bias-corrected single-
     bubble dating): dating_knp.py.
-  - tidy()/augment()/tidy_join(): DataFrame-producing accessors; tidy()
-    also covers RadfCv/RadfDistr (see tidy.py's module docstring). Needs
+  - tidy()/augment()/tidy_join()/augment_join(): DataFrame-producing
+    accessors, for results, critical values and distributions (see
+    tidy.py's module docstring). Needs
     pandas (`pip install pyexuber[pandas]`), lazily imported.
   - diagnostics()/summary(): per-series reject/not-reject verdicts and the
     statistic-vs-critical-value table: diagnostics.py. summary() needs
@@ -71,7 +72,6 @@ Not yet ported (deferred, not silently dropped):
     sim_common, sim_falsebubble, sim_mar, sim_msbubble, sim_tree,
     sim_dgp1/2 -- larger, more involved DGPs than the innovation
     generators above, left for later.
-  - augment() for radf_cv, augment_join().
   - QPSY (monitor_quantile()'s double-recursion sibling): O(T^2) QR fits,
     a materially larger cost class than QPWY's O(T), not attempted.
 
@@ -114,7 +114,7 @@ from exuber.radf import psy_ds, psy_minw, radf
 from exuber.radf_common import radf_common, radf_common_cv
 from exuber.radf_recovery import radf_recovery, radf_recovery_cv
 from exuber.rootstamp import rootstamp, rootstamp_episodes
-from exuber.tidy import augment, tidy, tidy_join
+from exuber.tidy import augment, augment_join, tidy, tidy_join
 
 try:
     __version__ = _version("pyexuber")
@@ -156,6 +156,7 @@ __all__ = [
     "tidy",
     "augment",
     "tidy_join",
+    "augment_join",
     "diagnostics",
     "summary",
 ]
