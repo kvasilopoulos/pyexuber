@@ -32,5 +32,8 @@ pytestmark = pytest.mark.skipif(
         "radf_lbi_monitor_validation.py",
     ],
 )
-def test_replication_script_runs_clean(script):
+def test_replication_script_runs_clean(script, monkeypatch):
+    # Some scripts import a sibling script (e.g. Y42 from the Kurozumi one),
+    # which `python script.py` resolves via the script's own directory.
+    monkeypatch.syspath_prepend(str(REPL_DIR))
     runpy.run_path(str(REPL_DIR / script), run_name="__main__")
