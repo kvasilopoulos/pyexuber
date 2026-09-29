@@ -68,11 +68,6 @@ fully usable via `from exuber.sim import sim_psy1` etc., just not part
 of the top-level `exuber` namespace.
 
 Not yet ported (deferred, not silently dropped):
-  - the remaining 2026-08 sim_*() DGP extensions: sim_coexplosive,
-    sim_common, sim_falsebubble, sim_mar, sim_msbubble, sim_tree --
-    larger, more involved DGPs than the innovation generators above, left
-    for later. (R's sim_dgp1/2 are defunct aliases of sim_psy1/2, which
-    are ported.)
   - monitor_quantile()'s bootstrap critical values (the paper's
     Algorithm 1): each replicate costs QPSY's full O(T^2) QR sweep. The
     asymptotic boundary is ported, with its small-sample caveat.

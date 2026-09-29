@@ -469,3 +469,233 @@ def sim_fi(n: int, d: float = 0.2, sigma: float = 1.0, seed: int | None = None) 
         window = eps[k : k + m + 1]
         u[k] = np.dot(psi, window[::-1])
     return u
+
+
+def _norm_cdf(x: np.ndarray) -> np.ndarray:
+    return 0.5 * (1 + np.vectorize(math.erf)(x / math.sqrt(2)))
+
+
+def sim_tree(
+    n: int,
+    a: float = 0.95,
+    eta: float = 1.0,
+    mu: float = -1.0,
+    rho: float = 0.7,
+    sigma: float = 4.0,
+    y0: float | None = None,
+    seed: int | None = None,
+) -> np.ndarray:
+    """Gourieroux & Jasiak (2025) stochastic branching-tree bubble: a binomial
+    tree whose branching intensity p_t = Phi(X_t) follows a latent Gaussian
+    AR(1). Price floor eta/(1-a); no finite mean, so occasional huge values
+    are expected. Defaults reproduce the source's Figure 2 example."""
+    if not 0 < a < 1:
+        raise ValueError("a must be in (0, 1)")
+    if eta <= 0 or sigma <= 0:
+        raise ValueError("eta and sigma must be positive")
+    if not -1 < rho < 1:
+        raise ValueError("rho must be in (-1, 1)")
+    rng = np.random.default_rng(seed)
+    y0 = eta / (1 - a) if y0 is None else y0
+
+    x = np.empty(n)
+    x[0] = mu
+    u = rng.normal(size=n - 1)
+    for t in range(1, n):
+        x[t] = mu + rho * (x[t - 1] - mu) + sigma * math.sqrt(1 - rho**2) * u[t - 1]
+    # clip away from exact 0/1: 0/0 would propagate NaN through every later y
+    p = np.clip(_norm_cdf(x), 1e-10, 1 - 1e-10)
+    z = rng.binomial(1, p)
+    xi1 = z / (a * p)
+    eps = (eta / (1 - a)) * (1 - xi1) + (eta / a) * (1 - z) / (1 - p)
+
+    y = np.empty(n)
+    y[0] = y0
+    for t in range(1, n):
+        y[t] = xi1[t] * y[t - 1] + eps[t]
+    return y
+
+
+def sim_mar(
+    n: int,
+    phi1: float = 0.7,
+    psi1: float = 0.7,
+    dist: str = "cauchy",
+    df: float = 2,
+    burn: int = 100,
+    seed: int | None = None,
+) -> np.ndarray:
+    """Blasques, Koopman, Mingoli & Telg (2025) mixed causal-noncausal
+    AR(1,1): (1 - phi1 L)(1 - psi1 L^-1) y_t = eps_t. The noncausal part is
+    run backward from a zero boundary `burn` steps past the end, the causal
+    part forward from `burn` steps before the start; both burn-ins dropped."""
+    if dist not in ("cauchy", "t"):
+        raise ValueError('dist must be "cauchy" or "t"')
+    if not (0 < phi1 < 1 and 0 < psi1 < 1):
+        raise ValueError("phi1 and psi1 must be in (0, 1)")
+    if burn < 0:
+        raise ValueError("burn must be non-negative")
+    rng = np.random.default_rng(seed)
+    m = n + 2 * burn
+    eps = rng.standard_cauchy(m) if dist == "cauchy" else rng.standard_t(df, m)
+
+    u = np.zeros(m + 1)
+    for t in range(m - 1, -1, -1):
+        u[t] = psi1 * u[t + 1] + eps[t]
+    y = np.empty(m)
+    y[0] = u[0]
+    for t in range(1, m):
+        y[t] = phi1 * y[t - 1] + u[t]
+    return y[burn : burn + n]
+
+
+def sim_common(
+    n_series: int,
+    n: int,
+    te: float | None = None,
+    tf: float | None = None,
+    c: float = 1.0,
+    alpha: float = 0.6,
+    sigma: float = 6.79,
+    sigma_e: float = 0.1,
+    seed: int | None = None,
+    return_factor: bool = False,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+    """Chen, Phillips & Shi (2023) common bubble: `n_series` observed series
+    X_t = Lambda f_t + e_t driven by one latent sim_psy1() bubble factor,
+    loadings Lambda ~ U[0, 2]. Returns an (n, n_series) array; with
+    `return_factor=True`, also the latent factor (R's "factor" attribute)."""
+    if sigma_e < 0:
+        raise ValueError("sigma_e must be non-negative")
+    rng = np.random.default_rng(seed)
+    f = sim_psy1(n, te=te, tf=tf, c=c, alpha=alpha, sigma=sigma, seed=int(rng.integers(2**62)))
+    loadings = rng.uniform(0, 2, size=n_series)
+    x = np.outer(f, loadings) + rng.normal(scale=sigma_e, size=(n, n_series))
+    return (x, f) if return_factor else x
+
+
+def sim_coexplosive(
+    n: int,
+    lag: int = 0,
+    phi_x: float = 1.0,
+    phi_z: float = 0.0,
+    mu_y: float = 0.0,
+    sigma_y: float = 6.79,
+    x_args: dict | None = None,
+    z_args: dict | None = None,
+    seed: int | None = None,
+) -> np.ndarray:
+    """Evripidou, Harvey, Leybourne & Sollis (2022) co-explosive pair:
+    x from sim_psy1(), y_t = mu_y + phi_x x_{t-lag} + phi_z z_t + eps_t
+    (z an independent sim_psy1() bubble, only drawn if phi_z != 0).
+    lag > 0: x's episode leads y's. Returns an (n, 2) array [x, y]; y is
+    NaN where x_{t-lag} falls outside the sample."""
+    if sigma_y < 0:
+        raise ValueError("sigma_y must be non-negative")
+    rng = np.random.default_rng(seed)
+    x = sim_psy1(n, seed=int(rng.integers(2**62)), **(x_args or {}))
+    if phi_z != 0:
+        z = sim_psy1(n, seed=int(rng.integers(2**62)), **(z_args or {}))
+    else:
+        z = np.zeros(n)
+    idx = np.arange(n) - lag
+    valid = (idx >= 0) & (idx < n)
+    x_lag = np.full(n, np.nan)
+    x_lag[valid] = x[idx[valid]]
+    y = mu_y + phi_x * x_lag + phi_z * z + rng.normal(scale=sigma_y, size=n)
+    return np.column_stack([x, y])
+
+
+def sim_msbubble(
+    n: int,
+    p11: float = 0.98,
+    p22: float = 0.90,
+    lambda1: float = 0.98,
+    lambda2: float = 1.03,
+    sigma_b: float = 0.05,
+    b0: float = 0.0,
+    s0: int = 1,
+    seed: int | None = None,
+    return_regime: bool = False,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+    """Chan & Santi (2021) Markov-switching bubble: b_t = b_{t-1}/lambda_{S_t}
+    + eps_t, S_t a two-state Markov chain (1 = surviving/explosive via
+    lambda1 < 1, 2 = collapsing via lambda2 > 1). Uses the contemporaneous
+    S_t, as R does (the source indexes by S_{t+1}). With
+    `return_regime=True`, also the regime path (R's "regime" attribute).
+    At the defaults the process is net-explosive (~1.2% average growth per
+    step), so it overflows float64 after roughly 60,000 observations."""
+    if not (0 < p11 < 1 and 0 < p22 < 1):
+        raise ValueError("p11 and p22 must be in (0, 1)")
+    if sigma_b <= 0 or s0 not in (1, 2):
+        raise ValueError("sigma_b must be positive and s0 one of 1, 2")
+    rng = np.random.default_rng(seed)
+    s = np.empty(n, dtype=int)
+    s[0] = s0
+    unif = rng.uniform(size=n - 1)
+    for t in range(1, n):
+        stay = p11 if s[t - 1] == 1 else p22
+        s[t] = s[t - 1] if unif[t - 1] < stay else 3 - s[t - 1]
+    lam = np.where(s == 1, lambda1, lambda2)
+
+    b = np.empty(n)
+    b[0] = b0
+    eps = rng.normal(scale=sigma_b, size=n - 1)
+    for t in range(1, n):
+        b[t] = b[t - 1] / lam[t] + eps[t - 1]
+    return (b, s) if return_regime else b
+
+
+def sim_falsebubble(
+    n: int,
+    t1: int | None = None,
+    t2: int | None = None,
+    kappa: int | None = None,
+    shape: str = "triangular",
+    amplitude: float = 1.0,
+    mu: float = 0.02,
+    sigma_d: float = 0.05,
+    r: float = 0.05,
+    d0: float = 0.0,
+    seed: int | None = None,
+    return_components: bool = False,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Chen, Chen, Huang, Li & Zhang (2026) false bubble: a deterministic
+    hump-shaped technology shock in dividend growth makes a present-value
+    fundamental -- with no bubble at all -- look locally explosive. A no-
+    bubble stress test. t1/t2/kappa are 1-indexed dates, like R. With
+    `return_components=True`, returns (price, dividend, technology)."""
+    t1 = math.floor(0.3 * n) if t1 is None else t1
+    t2 = math.floor(0.7 * n) if t2 is None else t2
+    kappa = math.floor((t2 - t1) / 2) if kappa is None else kappa
+    if shape not in ("triangular", "gaussian"):
+        raise ValueError('shape must be "triangular" or "gaussian"')
+    if not (1 <= t1 <= n and t1 <= t2 <= n):
+        raise ValueError("need 1 <= t1 <= t2 <= n")
+    if not (0 < kappa < t2 - t1) or amplitude < 0 or r <= 0 or sigma_d <= 0:
+        raise ValueError("need 0 < kappa < t2 - t1, amplitude >= 0, r > 0, sigma_d > 0")
+    rng = np.random.default_rng(seed)
+
+    tt = np.arange(1, n + 1)
+    if shape == "triangular":
+        tau = np.zeros(n)
+        up = (tt >= t1) & (tt <= t1 + kappa)
+        down = (tt > t1 + kappa) & (tt <= t2)
+        tau[up] = (tt[up] - t1) / kappa
+        tau[down] = (t2 - tt[down]) / (t2 - t1 - kappa)
+    else:
+        tau = np.exp(-0.5 * ((tt - (t1 + kappa)) / ((t2 - t1) / 4)) ** 2)
+        tau[(tt < t1) | (tt > t2)] = 0
+    tau = amplitude * tau
+
+    d = np.empty(n)
+    d[0] = d0
+    eta = rng.normal(scale=sigma_d, size=n - 1)
+    for t in range(1, n):
+        d[t] = d[t - 1] + mu + tau[t] + eta[t - 1]
+
+    # T_t = sum_{s>t} beta^(s-t) tau_s: the known-in-advance hump, discounted
+    beta = 1 / (1 + r)
+    bigt = np.array([np.sum(beta ** np.arange(1, n - t) * tau[t + 1 :]) for t in range(n)])
+    p = mu * (1 + r) * r ** (-2) + d / r + bigt / r
+    return (p, d, tau) if return_components else p
