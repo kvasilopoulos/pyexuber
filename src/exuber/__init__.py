@@ -33,7 +33,7 @@ Scope so far:
     invariant test): lbi_test.py.
   - quantile_test() (Wu, Shi & Wu 2025 quantile-regression global test):
     quantile_test.py.
-  - monitor_quantile() (Wu, Shi & Wu 2025 QPWY recursive quantile
+  - monitor_quantile() (Wu, Shi & Wu 2025 QPWY/QPSY recursive quantile
     monitoring): monitor_quantile.py. See these modules' own docstrings
     for exactly which boundary variants of each are ported vs. deferred.
   - rootstamp()/rootstamp_episodes() (Guo, Sun & Wang 2019 / Phillips-
@@ -46,8 +46,8 @@ Scope so far:
     dating_hls.py.
   - dating_hlw() (Harvey, Leybourne & Whitehouse 2020 multi-bubble
     wrapper around dating_hls()): dating_hlw.py.
-  - dating_knp() (Kejriwal, Nguyen & Perron 2025 bias-corrected single-
-    bubble dating): dating_knp.py.
+  - dating_knp() (Kejriwal, Nguyen & Perron 2025 bias-corrected dating,
+    one or several bubbles): dating_knp.py.
   - tidy()/augment()/tidy_join()/augment_join(): DataFrame-producing
     accessors, for results, critical values and distributions (see
     tidy.py's module docstring). Needs
@@ -73,8 +73,9 @@ Not yet ported (deferred, not silently dropped):
     larger, more involved DGPs than the innovation generators above, left
     for later. (R's sim_dgp1/2 are defunct aliases of sim_psy1/2, which
     are ported.)
-  - QPSY (monitor_quantile()'s double-recursion sibling): O(T^2) QR fits,
-    a materially larger cost class than QPWY's O(T), not attempted.
+  - monitor_quantile()'s bootstrap critical values (the paper's
+    Algorithm 1): each replicate costs QPSY's full O(T^2) QR sweep. The
+    asymptotic boundary is ported, with its small-sample caveat.
 
 Note on radf_sb_cv/distr: this port's bootstrap DGP prepends the *full*
 initmat[j, :] (reversed) rather than R's original initmat[j, lag:1],

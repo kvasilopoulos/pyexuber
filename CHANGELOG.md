@@ -24,6 +24,9 @@ First PyPI release.
   tests, all against the paper's published Table I critical values.
 - `dating_knp(breaks=m)`: Kejriwal, Nguyen & Perron (2025)'s multi-bubble
   dynamic programme (exact global minimiser, O(m n^2)).
+- `monitor_quantile(type="qpsy")`: Wu, Shi & Wu (2025)'s QPSY monitor
+  alongside QPWY; asymptotic boundary, oversized away from the median in
+  small samples (a UserWarning says so for QPSY).
 - `sim_psy1`, `sim_psy2`, `sim_ps1`, `sim_ps2`, `sim_blan`, `sim_evans`,
   `sim_div`: bubble DGP simulators.
 - Requires Python >= 3.10. Wheels for Linux x86_64, macOS 15+ (arm64 and

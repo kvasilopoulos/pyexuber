@@ -8,6 +8,7 @@ import pytest
 from test_monitor import Y42
 
 from exuber.monitor_quantile import (
+    _qpsy_stat_path,
     _qpwy_stat_path,
     _quantile_boundary_sim,
     monitor_quantile,
@@ -46,8 +47,8 @@ def test_monitor_quantile_rejects_bad_args():
 
 def test_quantile_boundary_sim_matches_brute_force():
     n, minw, delta = 30, 8, np.array([0.3, 0.9])
-    for qpsy in (False,):
-        sim = _quantile_boundary_sim(n, minw, 2, delta, np.random.default_rng(11))
+    for qpsy in (False, True):
+        sim = _quantile_boundary_sim(n, minw, 2, delta, qpsy, np.random.default_rng(11))
         rng = np.random.default_rng(11)
         for i in range(2):
             e = rng.normal(size=n - 1)
@@ -67,8 +68,23 @@ def test_quantile_boundary_sim_matches_brute_force():
 def test_boundary_treats_z_as_a_process():
     # delta = 0 leaves only Z; one shared z per path would make sup_r Z
     # exactly N(0,1), 95% quantile ~1.645
-    sim = _quantile_boundary_sim(150, 20, 400, np.array([0.0]), np.random.default_rng(3))
+    sim = _quantile_boundary_sim(150, 20, 400, np.array([0.0]), False, np.random.default_rng(3))
     assert np.quantile(sim[:, 0], 0.95) > 2
+
+
+def test_qpsy_grid_contains_qpwy_path():
+    d = np.array([0.2, 0.8])
+    wy = _quantile_boundary_sim(60, 12, 20, d, False, np.random.default_rng(5))
+    sy = _quantile_boundary_sim(60, 12, 20, d, True, np.random.default_rng(5))
+    assert np.all(sy >= wy - 1e-12)
+
+
+def test_qpsy_stat_path_first_value_is_qpwy():
+    minw = 15
+    r_idx = np.arange(minw + 1, len(Y42) + 1)
+    sy = _qpsy_stat_path(Y42, 0.7, r_idx, minw)
+    assert sy[0] == pytest.approx(_qpwy_stat_path(Y42, 0.7, r_idx[:1])[0], abs=1e-12)
+    assert np.all(sy >= _qpwy_stat_path(Y42, 0.7, r_idx) - 1e-12)
 
 
 def test_monitor_quantile_structural_run():
@@ -76,6 +92,13 @@ def test_monitor_quantile_structural_run():
     assert res.stat.shape == (65, 1)
     assert res.boundary.shape == (1,)
     assert -1 <= res.delta[0] <= 1
+    res2 = monitor_quantile(Y42[:40], tau=0.5, minw=10, nrep=20, seed=1, type="qpsy")
+    assert res2.type == "qpsy"
+    assert res2.stat.shape == (30, 1)
+    with pytest.raises(ValueError):
+        monitor_quantile(Y42, type="psy")
+    with pytest.warns(UserWarning, match="oversized"):
+        monitor_quantile(Y42[:40], tau=0.8, minw=10, nrep=20, seed=1, type="qpsy")
 
 
 def test_monitor_quantile_alarm_never_before_minw():
