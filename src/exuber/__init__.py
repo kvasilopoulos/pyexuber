@@ -69,9 +69,10 @@ of the top-level `exuber` namespace.
 
 Not yet ported (deferred, not silently dropped):
   - the remaining 2026-08 sim_*() DGP extensions: sim_coexplosive,
-    sim_common, sim_falsebubble, sim_mar, sim_msbubble, sim_tree,
-    sim_dgp1/2 -- larger, more involved DGPs than the innovation
-    generators above, left for later.
+    sim_common, sim_falsebubble, sim_mar, sim_msbubble, sim_tree --
+    larger, more involved DGPs than the innovation generators above, left
+    for later. (R's sim_dgp1/2 are defunct aliases of sim_psy1/2, which
+    are ported.)
   - QPSY (monitor_quantile()'s double-recursion sibling): O(T^2) QR fits,
     a materially larger cost class than QPWY's O(T), not attempted.
 
