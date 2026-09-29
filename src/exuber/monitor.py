@@ -1,15 +1,12 @@
 """Real-time monitoring for explosive bubbles: Phillips & Shi (2020)
-training/monitoring split, with Kurozumi (2020)'s closed-form SADF/
-GSADF_{s0} boundary and Homm & Breitung (2012)'s FLUC boundary. Ported
-from exuber's R/monitor.R. See docs/monitoring.md for the full
-derivations; this module keeps only the condensed formula citations
-needed to read the code.
+training/monitoring split, with their own wild-bootstrap boundary,
+Kurozumi (2020)'s closed-form SADF/GSADF_{s0} boundary and Homm &
+Breitung (2012)'s FLUC boundary. Ported from exuber's R/monitor.R. See
+docs/monitoring.md for the full derivations; this module keeps only the
+condensed formula citations needed to read the code.
 
-`boundary = "bootstrap"` (Phillips & Shi 2020's own wild-bootstrap
-boundary) is NOT ported: it needs radf_wb_ps_cv(), which pyexuber does
-not implement yet (see __init__.py's module docstring / docs/parity.md)
--- both boundaries ported here are closed-form/table-lookup, no
-bootstrap needed.
+Default differs from R: R's monitor() defaults to boundary="bootstrap";
+here the default stays "kurozumi" (no simulation, deterministic).
 
 Indexing convention (differs from the R source, consistent with the rest
 of pyexuber -- see datestamp.py): every "alarm"/position value returned
@@ -23,7 +20,10 @@ from dataclasses import dataclass
 import numpy as np
 
 from exuber._monitor_common import _HB_K_GRID, _HB_N_GRID, _sig_lvl_to_beta, _training_window
+from exuber.cv import radf_wb_ps_cv
 from exuber.radf import RadfResult, _to_2d_array, psy_minw, radf
+
+_SIG_IDX = {90: 0, 95: 1, 99: 2}
 
 # Kurozumi (2020) Table 1, transcribed from exuber/R/monitor.R's
 # kurozumi_table1 (itself transcribed from a rendered PDF page -- see
@@ -131,8 +131,8 @@ def _hb_fluc_q(sig_lvl: float, n_train: int, k: float) -> float:
 
 @dataclass
 class MonitorResult:
-    stat: np.ndarray  # (n_mon, nc): badf ("kurozumi" s0=0/"fluc") or the
-    # GSADF_{s0} statistic ("kurozumi" s0>0, shared across series)
+    stat: np.ndarray  # (n_mon, nc): bsadf ("bootstrap"), badf ("kurozumi"
+    # s0=0/"fluc") or the GSADF_{s0} statistic ("kurozumi" s0>0)
     boundary: np.ndarray  # (nc,) flat, or (n_mon,) k-varying when s0 > 0
     t_star: int
     alarm: np.ndarray  # (nc,), NaN where no breach occurred
@@ -140,9 +140,10 @@ class MonitorResult:
     lag: int
     n: int
     sig_lvl: float
-    boundary_type: str  # "kurozumi" or "fluc"
+    boundary_type: str  # "bootstrap", "kurozumi" or "fluc"
     s0: float
     series_names: list[str] | None = None
+    iter: int | None = None  # bootstrap replications; None for the closed-form boundaries
 
 
 def monitor(
@@ -153,6 +154,9 @@ def monitor(
     lag: int = 0,
     boundary: str = "kurozumi",
     s0: float = 0,
+    nboot: int = 500,
+    type: str = "fixed",
+    seed: int | None = None,
 ) -> MonitorResult:
     """Real-time monitoring: fix a training window [0, T*) assumed free of
     exuberance, calibrate a boundary on it, then compare the running
@@ -171,14 +175,16 @@ def monitor(
     their DF_{t/n} is likewise exactly radf()'s `badf` sequence, compared
     against a published constant from their Table 7.
 
+    `boundary = "bootstrap"` implements Phillips & Shi (2020): the
+    boundary is each series' GSADF critical value from radf_wb_ps_cv() on
+    the training window alone (`nboot`, `type`, `seed` are passed
+    through, `lag` as its `adflag`), compared against radf()'s `bsadf`
+    sequence. `nboot`/`type`/`seed` are ignored by the other boundaries.
+
     `sig_lvl` must be one of 90, 95, 99 (the levels both tables tabulate).
     """
-    if boundary not in ("kurozumi", "fluc"):
-        raise ValueError(
-            "boundary must be 'kurozumi' or 'fluc' (boundary='bootstrap', Phillips & Shi "
-            "(2020)'s own wild-bootstrap boundary, needs radf_wb_ps_cv(), not yet ported -- "
-            "see docs/parity.md)"
-        )
+    if boundary not in ("bootstrap", "kurozumi", "fluc"):
+        raise ValueError("boundary must be 'bootstrap', 'kurozumi' or 'fluc'")
     x, columns = _to_2d_array(data)
     n, nc = x.shape
     minw = minw if minw is not None else psy_minw(n)
@@ -220,14 +226,24 @@ def monitor(
     pointer = full.badf.shape[0]
     mon_rows = np.arange(mon_from, pointer)
 
-    stat_path = full.badf
-    if boundary == "kurozumi":
-        s_bar = (n - t_star) / t_star
-        q = _kurozumi_sadf_q(sig_lvl, s_bar)
+    iters = None
+    if boundary == "bootstrap":
+        if sig_lvl not in _SIG_IDX:
+            raise ValueError("sig_lvl must be one of 90, 95, 99")
+        cv = radf_wb_ps_cv(x[:t_star], minw=minw, nboot=nboot, adflag=lag, type=type,
+                           tb=t_star, seed=seed)
+        boundary_vec = np.asarray(cv.gsadf_cv)[:, _SIG_IDX[int(sig_lvl)]]
+        stat_path = full.bsadf
+        iters = nboot
     else:
-        k = n / t_star
-        q = _hb_fluc_q(sig_lvl, t_star, k)
-    boundary_vec = np.full(nc, q)
+        stat_path = full.badf
+        if boundary == "kurozumi":
+            s_bar = (n - t_star) / t_star
+            q = _kurozumi_sadf_q(sig_lvl, s_bar)
+        else:
+            k = n / t_star
+            q = _hb_fluc_q(sig_lvl, t_star, k)
+        boundary_vec = np.full(nc, q)
 
     alarm = np.full(nc, np.nan)
     for j in range(nc):
@@ -247,4 +263,5 @@ def monitor(
         boundary_type=boundary,
         s0=0,
         series_names=columns,
+        iter=iters,
     )

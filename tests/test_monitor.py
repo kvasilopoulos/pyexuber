@@ -186,7 +186,60 @@ def test_monitor_kurozumi_gsadf_s0_matches_r():
 
 def test_monitor_rejects_unsupported_boundary():
     with pytest.raises(ValueError):
-        monitor(Y42, boundary="bootstrap")
+        monitor(Y42, boundary="asymptotic")
+
+
+def test_monitor_bootstrap_orchestration(monkeypatch):
+    """boundary="bootstrap" wiring, with radf()/radf_wb_ps_cv() stubbed so it
+    runs without the C++ extension: cv from the training slice only, the
+    sig_lvl column of gsadf_cv as the boundary, bsadf as the statistic, and
+    the alarm at the first monitoring-period breach (0-indexed position)."""
+    import sys
+
+    from exuber.cv import RadfCv
+    from exuber.radf import RadfResult
+
+    n, minw = len(Y42), 10
+    pointer = n - minw
+    bsadf = np.full((pointer, 1), -1.0)
+    bsadf[45, 0] = 5.0  # row 45 <-> observation 55, inside the monitoring period
+    bsadf[5, 0] = 9.0  # training-period breach: must be ignored
+    calls = {}
+
+    def fake_radf(x, minw, lag):
+        return RadfResult(adf=np.zeros(1), badf=np.zeros((pointer, 1)), sadf=np.zeros(1),
+                          bsadf=bsadf, gsadf=np.zeros(1), bsadf_panel=bsadf[:, 0],
+                          gsadf_panel=0.0, minw=minw, lag=lag, n=n)
+
+    def fake_wb_ps_cv(x, minw, nboot, adflag, type, tb, seed):
+        calls.update(rows=len(x), nboot=nboot, adflag=adflag, type=type, tb=tb, seed=seed)
+        z = np.zeros((1, 3))
+        return RadfCv(adf_cv=z, sadf_cv=z, gsadf_cv=np.array([[1.0, 2.0, 3.0]]),
+                      badf_cv=z, bsadf_cv=z, method="Wild Bootstrap", minw=minw, n=tb,
+                      iter=nboot)
+
+    mon_mod = sys.modules["exuber.monitor"]  # the package re-exports the function as exuber.monitor
+    monkeypatch.setattr(mon_mod, "radf", fake_radf)
+    monkeypatch.setattr(mon_mod, "radf_wb_ps_cv", fake_wb_ps_cv)
+    mon = monitor(Y42, minw=minw, boundary="bootstrap", sig_lvl=95, nboot=50, seed=7)
+
+    assert calls == dict(rows=mon.t_star, nboot=50, adflag=0, type="fixed", tb=mon.t_star, seed=7)
+    assert mon.boundary.tolist() == [2.0]
+    assert mon.stat is bsadf
+    assert mon.alarm[0] == 45 + minw
+    assert (mon.boundary_type, mon.iter) == ("bootstrap", 50)
+    with pytest.raises(ValueError, match="sig_lvl"):
+        monitor(Y42, minw=minw, boundary="bootstrap", sig_lvl=80)
+
+
+def test_monitor_bootstrap_end_to_end():
+    pytest.importorskip("exuber._core")
+    rng = np.random.default_rng(1)
+    y = np.concatenate([np.cumsum(rng.normal(size=100)), 1.08 ** np.arange(1, 41) + 10])
+    mon = monitor(y, boundary="bootstrap", nboot=99, seed=1)
+    assert mon.boundary.shape == (1,)
+    assert mon.stat.shape[0] == len(y) - mon.minw - mon.lag
+    assert not np.isnan(mon.alarm[0]) and mon.alarm[0] >= mon.t_star
 
 
 def test_monitor_kurozumi_s0_alarm_never_before_t_star():
