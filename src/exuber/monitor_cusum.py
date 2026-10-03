@@ -1,15 +1,16 @@
-"""monitor_cusum() -- Homm & Breitung (2012)'s CUSUM real-time monitoring
-(a structurally different statistic from monitor()'s recursive ADF-family
-training-max -- a standardized running sum of first differences compared
-against a closed-form asymptotic boundary, no bootstrap, no C++). Ported
-from exuber's R/monitor_cusum.R. Astill, Harvey, Leybourne, Taylor & Zu
-(2023)'s volatility-robust one-sided-kernel "CUSUMV" variant
-(type="kernel") is included; their Corollary 1 establishes the same
-boundary function controls the false-alarm rate for both.
+"""monitor_cusum(): the CUSUM real-time monitor of Homm & Breitung (2012). Its
+statistic differs structurally from the training maximum of recursive
+ADF-family statistics in monitor(). It is a standardized running sum of first
+differences, compared with a closed-form asymptotic boundary, and it needs no
+bootstrap and no C++. Ported from exuber's R/monitor_cusum.R. The module
+also includes the volatility-robust "CUSUMV" variant with a one-sided kernel
+(type="kernel") of Astill, Harvey, Leybourne, Taylor & Zu (2023). Their
+Corollary 1 shows that the same boundary function controls the false-alarm
+rate in both cases.
 
-Indexing convention (differs from the R source, consistent with the rest
-of pyexuber -- see datestamp.py): every "alarm" value returned here is a
-0-indexed position into the original input array.
+Indexing convention. This differs from the R source and is consistent with
+the rest of pyexuber (see datestamp.py). Every "alarm" value returned here is
+a 0-indexed position into the original input array.
 """
 
 from dataclasses import dataclass
@@ -47,8 +48,8 @@ def _cusum_stat_path(y: np.ndarray, t_star: int, b_alpha: float) -> tuple[np.nda
     """HB's CUSUM statistic (eq. 26) and boundary (eq. 29) at every
     monitoring point t = t_star, ..., n-1 (0-indexed). sigma_hat_t^2 is the
     recursive (growing) sample variance of first differences up to t,
-    re-estimated as new data arrives -- legitimate in real-time monitoring
-    since only past/current data is used at each t."""
+    re-estimated as new data arrive. This is legitimate in real-time monitoring,
+    because only past and current data are used at each t."""
     n = len(y)
     dy = np.diff(y)
     cs_dy2 = np.cumsum(dy**2)
@@ -137,8 +138,8 @@ def monitor_cusum(
     `type = "kernel"` uses Astill, Harvey, Leybourne, Taylor & Zu (2023)'s
     volatility-robust "CUSUMV" modification: each first difference is
     standardized by its own one-sided kernel spot-variance estimate (their
-    eq. 6-7, bandwidth `h`, default 20 -- their own empirically-recommended
-    value) instead of a single running variance, before cumulating. Their
+    eq. 6-7, bandwidth `h`, default 20, the value they recommend on empirical grounds)
+    instead of a single running variance, before cumulating. Their
     Corollary 1 establishes the same boundary function still controls the
     false-alarm rate under time-varying volatility.
     """

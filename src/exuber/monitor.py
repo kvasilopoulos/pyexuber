@@ -1,18 +1,19 @@
-"""Real-time monitoring for explosive bubbles: Phillips & Shi (2020)
-training/monitoring split, with their own wild-bootstrap boundary,
-Kurozumi (2020)'s closed-form SADF/GSADF_{s0} boundary and Homm &
-Breitung (2012)'s FLUC boundary. Ported from exuber's R/monitor.R. See
-docs/monitoring.md for the full derivations; this module keeps only the
-condensed formula citations needed to read the code.
+"""Real-time monitoring for explosive bubbles. The module implements the
+training and monitoring split of Phillips & Shi (2020) with their wild
+bootstrap boundary, the closed-form SADF/GSADF_{s0} boundary of Kurozumi
+(2020) and the FLUC boundary of Homm & Breitung (2012). Ported from exuber's
+R/monitor.R. See docs/monitoring.md for the derivations. This module keeps
+only the short formula citations that are needed to read the code.
 
-Default differs from R: R's monitor() defaults to boundary="bootstrap";
-here the default stays "kurozumi" (no simulation, deterministic).
+The default differs from R. R's monitor() defaults to boundary="bootstrap",
+whereas here the default stays "kurozumi", which needs no simulation and is
+deterministic.
 
-Indexing convention (differs from the R source, consistent with the rest
-of pyexuber -- see datestamp.py): every "alarm"/position value returned
-here is a 0-indexed position into the original input array (`y[alarm]` is
-the first monitoring observation that breaches the boundary), not an
-R-style 1-indexed observation count.
+Indexing convention. This differs from the R source and is consistent with
+the rest of pyexuber (see datestamp.py). Every "alarm" or position value
+returned here is a 0-indexed position into the original input array, so
+`y[alarm]` is the first monitoring observation that breaches the boundary.
+It is not an R-style 1-indexed observation count.
 """
 
 from dataclasses import dataclass
@@ -26,7 +27,7 @@ from exuber.radf import RadfResult, _to_2d_array, psy_minw, radf
 _SIG_IDX = {90: 0, 95: 1, 99: 2}
 
 # Kurozumi (2020) Table 1, transcribed from exuber/R/monitor.R's
-# kurozumi_table1 (itself transcribed from a rendered PDF page -- see
+# kurozumi_table1 (which was itself transcribed from a rendered PDF page; see
 # docs/monitoring.md, "Kurozumi (2020, 2021)"). Only q0_df (SADF, s0=0)
 # and q04_df/q08_df (GSADF_{s0}, s0=0.4/0.8) are used here.
 _KUROZUMI_SBAR = np.array([1, 1, 1, 3, 3, 3, 5, 5, 5])
@@ -165,8 +166,8 @@ def monitor(
 
     `boundary = "kurozumi"` (default) implements Kurozumi (2020)'s
     closed-form boundary: a published constant (his Table 1) compared
-    against radf()'s `badf` sequence (his SADF(k) detector -- the s0=0,
-    fixed-window-start case, the default). `s0 = 0.4` or `0.8` switches to
+    against the `badf` sequence of radf(). This is his SADF(k) detector, the
+    default, which is the case s0=0 with the window start fixed. `s0 = 0.4` or `0.8` switches to
     his GSADF_{s0}(k) generalization: the window start ranges over
     [0, floor(T*s0)) instead of being fixed at 0, compared against his
     k-varying boundary function.

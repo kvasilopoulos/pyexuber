@@ -1,20 +1,20 @@
-"""Tidy accessors. Ports exuber's R/radf-tidiers.R: tidy()/augment() for
-radf_obj and radf_cv, tidy() for radf_distr, tidy_join() and
-augment_join().
+"""Tidy accessors. Ports exuber's R/radf-tidiers.R: tidy() and augment() for
+radf_obj and radf_cv, tidy() for radf_distr, tidy_join() and augment_join().
 
-tidy() dispatches on its argument's type like R's S3 generic. Monte
-Carlo vs wild bootstrap is told apart by shape (shared (3,) critical
-values vs per-series (nc, 3)), not by class, since both are RadfCv here.
+tidy() dispatches on the type of its argument, like an S3 generic in R. Monte
+Carlo and wild bootstrap results are told apart by shape (shared (3,)
+critical values against per-series (nc, 3)) and not by class, because both
+are RadfCv here.
 
-Divergence from R: RadfResult doesn't carry the original input data or a
-date index (radf() never stored either -- see radf.py), so augment()'s
-table has no `data`/`index` columns, unlike R's augment.radf_obj(). Row
-selection, column names and ordering otherwise match R exactly (verified
-against R's own tidy()/augment() output structure -- see
-docs/replication/core-workflow/tidy_validation.py).
+Divergence from R. RadfResult does not carry the original input data or a
+date index, and radf() never stored either (see radf.py). The table from
+augment() therefore has no `data` or `index` columns, unlike augment.radf_obj()
+in R. Otherwise the row selection, the column names and the ordering match R
+exactly. We verified this against the output structure of R's own tidy() and
+augment() (see docs/replication/core-workflow/tidy_validation.py).
 
-Requires pandas (an optional extra, `pip install pyexuber[pandas]`) --
-lazily imported, like radf()'s C++ extension.
+The module requires pandas, an optional extra (`pip install pyexuber[pandas]`),
+which is imported lazily, like the C++ extension of radf().
 """
 
 from typing import TYPE_CHECKING
@@ -249,8 +249,8 @@ def augment_join(
 ) -> "pd.DataFrame":
     """Port of R's augment_join.radf_obj(): the badf/bsadf statistic
     sequences next to their critical-value sequences, one row per
-    key-series-statistic-significance (key, id, stat, tstat, sig, crit) --
-    the table autoplot() is built on. With a sieve-bootstrap cv, the panel
+    key-series-statistic-significance (key, id, stat, tstat, sig, crit). This
+    is the table on which autoplot() is built. With a sieve-bootstrap cv, the panel
     bsadf_panel sequence only. Like augment(), no `index`/`data` columns."""
     pd = _require_pandas()
     panel = isinstance(cv, RadfSbCv)

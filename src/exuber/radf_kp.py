@@ -1,6 +1,6 @@
 """Kernel-purge test (Harvey, Leybourne, Taylor & Zu 2024). Ported from
-exuber's R/radf_kp.R -- see docs/volatility-robustness.md (root repo)
-for the formulas, papers and independent validation this ports.
+exuber's R/radf_kp.R. See docs/volatility-robustness.md (root repo) for the
+formulas, the papers and the independent validation of this port.
 """
 
 import numpy as np
@@ -11,10 +11,10 @@ from exuber.radf import RadfResult, _to_2d_array
 
 def kernel_purge(y: np.ndarray, kernel: str = "gaussian", h: float | None = None) -> np.ndarray:
     """Kernel-purged transform (eq. 4-5): x_t = cumsum(Delta y_t /
-    sigma_hat_t). Feed the result to `radf()` -- the purged statistic's
-    null distribution is proven identical to the standard homoskedastic
-    GSADF null (Theorem 1/Remark 3.2 of Harvey, Leybourne, Taylor & Zu
-    2024), so no new critical-value machinery is needed."""
+    sigma_hat_t). Feed the result to `radf()`. The null distribution of the purged
+    statistic is proven identical to the standard homoskedastic GSADF null
+    (Theorem 1 and Remark 3.2 of Harvey, Leybourne, Taylor & Zu 2024), so no
+    new critical-value machinery is needed."""
     y = np.asarray(y, dtype=float)
     tn = len(y) - 1
     h = h if h is not None else 0.1 * tn ** (-0.25)

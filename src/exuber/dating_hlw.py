@@ -1,25 +1,24 @@
-"""Multi-bubble SSR/BIC dating (Harvey, Leybourne & Whitehouse 2020).
-Ported from exuber's R/dating_hlw.R (see docs/dating-and-root-
-inference.md in the umbrella repo for the full methodology and
-validation record).
+"""Multi-bubble SSR/BIC dating (Harvey, Leybourne & Whitehouse 2020). Ported
+from exuber's R/dating_hlw.R. The methodology and validation record are in
+docs/dating-and-root-inference.md in the umbrella repo.
 
-A two-step wrapper around dating_hls(): Step 1 runs PSY's existing
-detection+dating (radf()/datestamp()) to get preliminary start/end
-positions for each detected explosive episode, and carves the sample
-into disjoint "date windows" (splitting at the midpoint between one
-episode's end and the next one's start). Step 2 applies
-exuber._hls_common's _hls_fit_series() independently within each window
--- restricted to models {2, 4} for every window but the last (a window
-boundary is by construction a unit-root point, not a genuine sample end)
--- with a sequential adjustment rule so window j+1 always starts at the
-first observation of window j's just-fitted post-explosive regime.
+The method is a two-step wrapper around dating_hls(). Step 1 runs the
+existing PSY detection and dating (radf() and datestamp()) to get
+preliminary start and end positions for each detected explosive episode. It
+then splits the sample into disjoint "date windows", cutting at the midpoint
+between the end of one episode and the start of the next. Step 2 applies
+_hls_fit_series() from exuber._hls_common to each window independently. For
+every window except the last it is restricted to models {2, 4}, because a
+window boundary is by construction a unit-root point and not a genuine sample
+end. A sequential adjustment rule makes window j+1 start at the first
+observation of the post-explosive regime that was just fitted in window j.
 
-Deviation from R (an improvement, not a workaround): R's dating_hlw()
-has to wrap its datestamp() call in tryCatch(error=, warning=) because
-R's datestamp() raises a hard error when no series has any detected
-episode. Python's datestamp() never raises for that case -- it simply
-returns an empty dict per series (see datestamp.py) -- so no
-try/except is needed here at all.
+This port deviates from R, and the deviation is an improvement and not a
+workaround. R's dating_hlw() has to wrap its datestamp() call in
+tryCatch(error=, warning=), because R's datestamp() raises a hard error when
+no series has any detected episode. Python's datestamp() never raises in that
+case and returns an empty dict for each series (see datestamp.py), so no
+try/except is needed here.
 """
 
 import math
@@ -76,9 +75,9 @@ def _dating_hlw_from_episodes(
 ) -> list[HlwEpisode]:
     """Step 2 (window construction + per-window HLS fitting + sequential
     start adjustment), given a single series' already step-1-detected
-    episodes -- factored out so it's testable with hand-built Episodes,
-    no radf()/datestamp()/the C++ extension needed (same split as
-    radf_recovery's _recovery_dates_from_bsadf()).
+    episodes. It is a separate function so that it can be tested with
+    hand-built Episodes, without radf(), datestamp() or the C++ extension.
+    radf_recovery uses the same split in _recovery_dates_from_bsadf().
     """
     if not episodes:
         return []
@@ -149,18 +148,19 @@ def dating_hlw(
     every window but the last).
 
     When exactly one episode is detected, this reduces exactly to
-    dating_hls() applied to the whole series -- the paper's own stated
-    property, verified by test (the single window then runs [0, n) and
-    fits all four models).
+    dating_hls() applied to the whole series. This property is stated in the
+    paper, and a test verifies it (the single window then runs over [0, n)
+    and fits all four models).
 
     The step-2 SSR/BIC dating needs no critical values, same as
     dating_hls(). Step 1's PSY detection does use a wild bootstrap
     critical value (cv/nboot/seed below, defaulting to radf_wb_cv())
     only to locate the preliminary episode windows.
 
-    `join`: HLW's run-joining rule for fragmented step-1 detections -- two
+    `join`: the run-joining rule of HLW for fragmented step-1 detections. Two
     runs separated by at most `join` non-rejections, each at least ln(T)
-    long, count as one episode. Default 3, the paper's value; 0 disables.
+    long, count as one episode. The default is 3, the value in the paper, and
+    0 turns the rule off.
     """
     x, columns = _to_2d_array(data)
     n, nc = x.shape

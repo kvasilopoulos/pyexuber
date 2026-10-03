@@ -1,23 +1,23 @@
-"""Date-stamping of explosive episodes. Port of exuber's R/radf-methods.R
-datestamp.radf_obj(), with one deliberate simplification: R selects which
-series to date-stamp via diagnostics_internal()/augment_join() (a tibble
-pipeline built around R's dplyr internals with no direct Python analogue).
-Here a series is date-stamped if its overall statistic (gsadf or sadf,
-matching `option`) exceeds the corresponding overall critical value at
-`sig_lvl` -- the same substantive test, expressed directly instead of
-through that pipeline. `nonrejected` and the peak "Signal" (positive/
-negative) field from the R version are not ported (deferred, not silently
-dropped -- the raw price/level series isn't retained on RadfResult yet).
+"""Date-stamping of explosive episodes. This is a port of datestamp.radf_obj()
+in exuber's R/radf-methods.R, with one deliberate simplification. R chooses
+which series to date-stamp through diagnostics_internal() and augment_join(),
+a tibble pipeline built on dplyr internals that has no direct Python
+analogue. Here a series is date-stamped if its overall statistic (gsadf or
+sadf, matching `option`) exceeds the corresponding overall critical value at
+`sig_lvl`. This is the same test as in R, expressed directly and without that
+pipeline. The `nonrejected` field and the peak "Signal" (positive or
+negative) field of the R version are not ported. We deferred them on
+purpose, because RadfResult does not yet keep the raw price or level series.
 
-`option="svadf"` (Sarkar & Wells 2026, arXiv:2604.12062, a non-peer-
-reviewed preprint) is a structurally different dating rule, folded in the
-same way R's `datestamp.radf_obj()` folds it (see R/radf-methods.R,
-R/svadf.R): reuses `radf()`'s own `badf` sequence directly (no `cv`
-needed), comparing it against two different closed-form, sample-size-only
-thresholds -- `log(t)/10` for origination, `log(t)/2` for collapse (the
-paper's own Section 5.1 calibration) -- and detects at most one
-origination/collapse pair per series, unlike the `cv`-based options which
-can find multiple episodes.
+`option="svadf"` (Sarkar & Wells 2026, arXiv:2604.12062, a preprint that has
+not been peer reviewed) is a structurally different dating rule. We fold it
+in the way R's `datestamp.radf_obj()` does (see R/radf-methods.R and
+R/svadf.R). It reuses the `badf` sequence of `radf()` directly, so no `cv` is
+needed, and it compares that sequence with two closed-form thresholds that
+depend only on the sample size: `log(t)/10` for origination and `log(t)/2`
+for collapse (the calibration in Section 5.1 of the paper). Unlike the
+options based on `cv`, which can find several episodes, it detects at most
+one origination and collapse pair per series.
 """
 
 import warnings
@@ -80,9 +80,9 @@ def svadf_threshold(t: np.ndarray, kind: str) -> np.ndarray:
 def _datestamp_svadf(result: RadfResult, min_duration: int) -> dict[str, list[Episode]]:
     """SV-ADF asymmetric-threshold dating (Sarkar & Wells 2026): unlike the
     cv-based options, origination and collapse compare `badf` against two
-    DIFFERENT thresholds, so it doesn't reduce to a shared `tstat > crit`
-    boolean -- detects at most one origination/collapse pair per series
-    (the paper's own procedure)."""
+    different thresholds, so it does not reduce to a shared `tstat > crit`
+    boolean. It detects at most one origination and collapse pair per series,
+    which is the procedure of the paper."""
     warnings.warn(SVADF_CAVEAT, stacklevel=3)
     badf = result.badf
     pointer, nc = badf.shape
@@ -105,7 +105,7 @@ def _datestamp_svadf(result: RadfResult, min_duration: int) -> dict[str, list[Ep
 
         below = np.where(series < coll_thresh)[0]
         below = below[below > start]
-        end = pointer  # sentinel: one past the last row -- no collapse found, ongoing
+        end = pointer  # sentinel: one past the last row, meaning no collapse was found (ongoing)
         if len(below) > 0:
             coll_runs = [r for r in _stamp(below) if (r[1] - r[0]) >= min_duration]
             if coll_runs:
@@ -173,7 +173,7 @@ def datestamp(
     out: dict[str, list[Episode]] = {}
     for j in range(nc):
         if tstat_overall[j] <= _cv_overall(cv_overall, j)[sidx]:
-            continue  # doesn't reject the null overall -- not date-stamped
+            continue  # the null is not rejected overall, so the series is not date-stamped
 
         series_tstat = tstat_seq[:, j]
         series_cv = _cv_curve(cv_seq, j)[:, sidx]

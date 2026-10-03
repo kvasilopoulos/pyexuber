@@ -1,8 +1,8 @@
-"""Shared monitoring helpers: ports of exuber's R/utils-defensive.R
-(training_window(), assert_sig_lvl(), quantile_narm()), plus the Homm &
-Breitung (2012) sampling grid ({20, 50, 100} training lengths x
-{2, ..., 10} horizon ratios) shared by monitor.py's FLUC table and
-monitor_cusum.py's finite-boundary table.
+"""Shared monitoring helpers. They port training_window(), assert_sig_lvl() and
+quantile_narm() from exuber's R/utils-defensive.R. They also hold the Homm &
+Breitung (2012) sampling grid, with training lengths {20, 50, 100} and
+horizon ratios {2, ..., 10}, which monitor.py uses for its FLUC table and
+monitor_cusum.py uses for its finite-boundary table.
 """
 
 import numpy as np

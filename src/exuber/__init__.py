@@ -1,83 +1,89 @@
-"""pyexuber: Python bindings for exubercore (recursive right-tailed unit
-root tests for explosive time series).
+"""pyexuber: Python bindings for exubercore, with recursive right-tailed unit
+root tests for explosive time series.
 
-Scope so far:
-  - radf(): the core recursive ADF/SADF/GSADF/BSADF statistic (C++, via
-    exubercore).
+The package contains the following parts.
+
+  - radf() computes the recursive ADF, SADF, GSADF and BSADF statistics. It
+    is written in C++ and reaches Python through exubercore.
   - radf_mc_cv/distr, radf_wb_cv/distr (HLST wild bootstrap),
-    radf_wb_ps_cv/distr (Phillips-Shi wild bootstrap variant),
-    radf_sb_cv/distr (sieve bootstrap): critical values / distributions,
-    pure Python + numpy (RNG-driven, mirrors exuber's R orchestration
-    around the same core statistic). lag_select()/adf_res()
-    (exuber._lagselect, internal) are the deterministic exception,
-    verified bit-for-bit against R.
-  - sim_*: bubble DGP simulators, pure Python + numpy, in sim.py. Not
-    re-exported here (see "Not re-exported" below) -- import directly,
-    e.g. `from exuber.sim import sim_psy1`.
-  - datestamp(): episode date-stamping (Start/Peak/End/Duration/Ongoing),
-    with one simplification -- see datestamp.py's module docstring.
-  - radf_crit(): precomputed Monte Carlo critical values from the shared
-    store exuber's R package also reads (crit.py), so a typical analysis
-    needn't simulate its own.
-  - radf_common()/radf_common_cv() (Chen, Phillips & Shi 2023 common-
-    bubble detection via PCA + PSY): radf_common.py.
-  - cobubble_test() (Evripidou, Harvey, Leybourne & Sollis 2022
-    co-explosive behaviour test): cobubble_test.py.
-  - contagion_reg() (Greenaway-McGrevy & Phillips 2016 bubble contagion
-    regression, minimum-viable subset): contagion_reg.py.
-  - monitor() (Phillips & Shi 2020 training/monitoring split, Kurozumi
-    2020 / Homm & Breitung 2012 boundaries): monitor.py.
-  - monitor_cusum() (Homm & Breitung 2012 CUSUM real-time monitoring):
-    monitor_cusum.py.
-  - lbi_test()/monitor_lbi() (Breitung & Diegel 2025 locally best
-    invariant test): lbi_test.py.
-  - quantile_test() (Wu, Shi & Wu 2025 quantile-regression global test):
-    quantile_test.py.
-  - monitor_quantile() (Wu, Shi & Wu 2025 QPWY/QPSY recursive quantile
-    monitoring): monitor_quantile.py. See these modules' own docstrings
-    for exactly which boundary variants of each are ported vs. deferred.
-  - rootstamp()/rootstamp_episodes() (Guo, Sun & Wang 2019 / Phillips-
-    Magdalinos 2007 root inference): rootstamp.py.
-  - dating_pdc() (Pang, Du & Chong 2021 / Kurozumi & Skrobotov 2023
-    sequential sample-splitting dating): dating_pdc.py.
-  - radf_recovery()/radf_recovery_cv() (Phillips & Shi 2014 reverse-
-    regression recovery dating): radf_recovery.py.
-  - dating_hls() (Harvey, Leybourne & Sollis 2017 SSR+BIC dating):
-    dating_hls.py.
-  - dating_hlw() (Harvey, Leybourne & Whitehouse 2020 multi-bubble
-    wrapper around dating_hls()): dating_hlw.py.
-  - dating_knp() (Kejriwal, Nguyen & Perron 2025 bias-corrected dating,
-    one or several bubbles): dating_knp.py.
-  - tidy()/augment()/tidy_join()/augment_join(): DataFrame-producing
-    accessors, for results, critical values and distributions (see
-    tidy.py's module docstring). Needs
-    pandas (`pip install pyexuber[pandas]`), lazily imported.
-  - diagnostics()/summary(): per-series reject/not-reject verdicts and the
-    statistic-vs-critical-value table: diagnostics.py. summary() needs
-    pandas; diagnostics() doesn't.
+    radf_wb_ps_cv/distr (Phillips-Shi wild bootstrap variant) and
+    radf_sb_cv/distr (sieve bootstrap) give critical values and
+    distributions. They are written in Python and numpy, because they are
+    driven by a random number generator, and they mirror exuber's R code
+    around the same core statistic. lag_select() and adf_res() (in
+    exuber._lagselect, internal) are deterministic, and we verified them
+    bit for bit against R.
+  - The sim_*() functions in sim.py simulate bubble DGPs. They are not
+    re-exported (see "Not re-exported" below). Import them directly, for
+    example `from exuber.sim import sim_psy1`.
+  - datestamp() dates the episodes (Start, Peak, End, Duration, Ongoing). It
+    makes one simplification, described in the module docstring of
+    datestamp.py.
+  - radf_crit() returns precomputed Monte Carlo critical values from the
+    shared store that exuber's R package also reads (crit.py), so a typical
+    analysis does not need to simulate its own.
+  - radf_common() and radf_common_cv() (Chen, Phillips & Shi 2023) detect a
+    common bubble by principal components and PSY (radf_common.py).
+  - cobubble_test() is the co-explosive behaviour test of Evripidou, Harvey,
+    Leybourne & Sollis 2022 (cobubble_test.py).
+  - contagion_reg() is the bubble contagion regression of Greenaway-McGrevy
+    & Phillips 2016, in a minimal subset (contagion_reg.py).
+  - monitor() implements the training and monitoring split of Phillips & Shi
+    2020, with the boundaries of Kurozumi 2020 and Homm & Breitung 2012
+    (monitor.py).
+  - monitor_cusum() is the CUSUM real-time monitor of Homm & Breitung 2012
+    (monitor_cusum.py).
+  - lbi_test() and monitor_lbi() implement the locally best invariant test of
+    Breitung & Diegel 2025 (lbi_test.py).
+  - quantile_test() is the quantile-regression global test of Wu, Shi & Wu
+    2025 (quantile_test.py).
+  - monitor_quantile() is the recursive quantile monitor (QPWY and QPSY) of
+    Wu, Shi & Wu 2025 (monitor_quantile.py). The module docstrings of these
+    monitors say which boundary variants are ported and which are deferred.
+  - rootstamp() and rootstamp_episodes() estimate the root of each episode
+    (Guo, Sun & Wang 2019; Phillips & Magdalinos 2007) (rootstamp.py).
+  - dating_pdc() dates bubbles by sequential sample splitting (Pang, Du &
+    Chong 2021; Kurozumi & Skrobotov 2023) (dating_pdc.py).
+  - radf_recovery() and radf_recovery_cv() date a bubble by the reverse
+    regression of Phillips & Shi 2014 (radf_recovery.py).
+  - dating_hls() dates bubbles by SSR and BIC (Harvey, Leybourne & Sollis
+    2017) (dating_hls.py).
+  - dating_hlw() wraps dating_hls() for several bubbles (Harvey, Leybourne &
+    Whitehouse 2020) (dating_hlw.py).
+  - dating_knp() is the bias-corrected dating of Kejriwal, Nguyen & Perron
+    2025, for one or several bubbles (dating_knp.py).
+  - tidy(), augment(), tidy_join() and augment_join() return DataFrames for
+    results, critical values and distributions (see the module docstring of
+    tidy.py). They need pandas (`pip install pyexuber[pandas]`), which is
+    imported lazily.
+  - diagnostics() and summary() give a reject or not-reject verdict for each
+    series and a table of statistics against critical values
+    (diagnostics.py). summary() needs pandas, and diagnostics() does not.
 
-Only the callable functions above are exported here. Each one's return
-type (RadfCv, DatingHlsResult, MonitorResult, ...) is a plain dataclass
-defined next to it and importable from its own submodule when you need
-it for a type hint or isinstance check, e.g. `from exuber.cv import
-RadfCv` or `from exuber.dating_hls import DatingHlsResult` -- not
-re-exported here, since most usage never needs to name the type.
+Only the callable functions above are exported here. The return type of each
+one (RadfCv, DatingHlsResult, MonitorResult and so on) is a plain dataclass
+defined next to the function. It can be imported from its own submodule when
+you need it for a type hint or an isinstance check, for example
+`from exuber.cv import RadfCv` or
+`from exuber.dating_hls import DatingHlsResult`. We do not re-export these
+types, because most code never needs to name them.
 
-Not re-exported here: exuber.sim's sim_*() DGP simulators. They remain
-fully usable via `from exuber.sim import sim_psy1` etc., just not part
-of the top-level `exuber` namespace.
+Not re-exported here: the sim_*() DGP simulators of exuber.sim. They remain
+fully usable through `from exuber.sim import sim_psy1` and similar imports,
+but they are not part of the top-level `exuber` namespace.
 
-Not yet ported (deferred, not silently dropped):
-  - monitor_quantile()'s bootstrap critical values (the paper's
-    Algorithm 1): each replicate costs QPSY's full O(T^2) QR sweep. The
+Not yet ported. These parts are deferred on purpose and have not been
+dropped by accident.
+  - The bootstrap critical values of monitor_quantile() (Algorithm 1 of the
+    paper). Each replicate costs the full O(T^2) QR sweep of QPSY. The
     asymptotic boundary is ported, with its small-sample caveat.
 
-Note on radf_sb_cv/distr: this port's bootstrap DGP prepends the *full*
-initmat[j, :] (reversed) rather than R's original initmat[j, lag:1],
-which was one element short of the lag + 1 the recursive AR filter needs
-for lag > 0 (R's index-0 drop rule made `lag:1` accidentally correct only
-at lag = 0). That was a real bug in exuber's own R/radf_sb.R, since
-fixed upstream (initmat[j, (lag + 1):1]) -- see cv.py's `_radf_sb`.
+Note on radf_sb_cv/distr. The bootstrap DGP in this port prepends the full
+initmat[j, :] in reverse. R originally used initmat[j, lag:1], which is one
+element short of the lag + 1 values that the recursive AR filter needs when
+lag > 0. R's rule of dropping index 0 made `lag:1` correct only at lag = 0.
+This was a real bug in exuber's own R/radf_sb.R, and it has since been fixed
+upstream (initmat[j, (lag + 1):1]). See `_radf_sb` in cv.py.
 """
 
 from importlib.metadata import PackageNotFoundError

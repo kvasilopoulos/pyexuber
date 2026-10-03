@@ -1,15 +1,17 @@
-"""Co-bubble test (Evripidou, Harvey, Leybourne & Sollis 2022). Ported
-from exuber's R/cobubble_test.R -- see docs/multivariate.md for the full
-evaluation this implements.
+"""Co-bubble test (Evripidou, Harvey, Leybourne & Sollis 2022). Ported from
+exuber's R/cobubble_test.R. See docs/multivariate.md for the evaluation that
+this code implements.
 
-Tests whether two series that each contain an explosive episode are
-"co-explosive": whether y_t - alpha - beta*x_{t-lag} is I(0) for some
-lead/lag, i.e. a KPSS-type stationarity test (null = co-explosive) on
-the residuals of y_t regressed on a constant and x_{t-lag} -- the
-opposite testing direction from radf()'s right-tailed unit-root tests.
-Critical values come from a wild bootstrap that reproduces the
-residuals' own heteroskedasticity pattern (the null distribution
-depends on it, so there's no fixed table -- Theorem 1/2).
+The test asks whether two series that each contain an explosive episode are
+"co-explosive", meaning that y_t - alpha - beta*x_{t-lag} is I(0) for some
+lead or lag. It is a KPSS-type stationarity test, with co-explosiveness as
+the null, applied to the residuals of y_t regressed on a constant and
+x_{t-lag}. The direction of the test is the opposite of the right-tailed
+unit-root tests in radf().
+
+The critical values come from a wild bootstrap that reproduces the
+heteroskedasticity pattern of the residuals. The null distribution depends on
+that pattern, so no fixed table exists (Theorems 1 and 2).
 """
 
 from dataclasses import dataclass
@@ -23,9 +25,9 @@ def _coexplosive_stat_aligned(
     """KPSS-type statistic S (eq. 3) on two already-aligned, equal-length
     vectors: sigma_y^-2 * n^-2 * sum_t (cumsum of OLS residuals up to t)^2,
     the OLS regression being y on a constant and xreg. Returns (S, resid,
-    sigma2, n) -- resid/sigma2/n are reused by the wild bootstrap, which
-    regresses a bootstrap y* on the SAME xreg (Remark 2: omitting xreg
-    from the bootstrap regression gives a worse finite-sample match)."""
+    sigma2, n). The wild bootstrap reuses resid, sigma2 and n, and it
+    regresses a bootstrap y* on the same xreg (Remark 2: omitting xreg
+    from the bootstrap regression matches worse in finite samples)."""
     n = len(y)
     if n < 3:
         raise ValueError("Series too short.")
@@ -88,9 +90,10 @@ def cobubble_test(
     phenomenon (possibly migrating between the two series with a lead or
     lag) rather than independent explosive episodes. Unlike radf() (a
     right-tailed test for explosiveness), this is a stationarity
-    (KPSS-type) test: the null is co-explosivity. Critical values are a
-    wild bootstrap of the residuals (there's no fixed table -- the null
-    distribution depends on the residuals' heteroskedasticity pattern).
+    (KPSS-type) test, and its null is co-explosivity. The critical values come
+    from a wild bootstrap of the residuals. No fixed table exists, because
+    the null distribution depends on the heteroskedasticity pattern of the
+    residuals.
 
     y, x: equal-length sequences. x is the (candidate) explosive-episode
     regressor; y is tested for co-explosivity with x_{t-lag}.
@@ -98,7 +101,7 @@ def cobubble_test(
     minimizing the residual variance (Section VI's i_hat).
     lag_grid: candidate lags searched when lag is None.
     nboot: number of wild bootstrap replications.
-    sig_lvl: one of 90, 95, 99 -- same convention as datestamp()'s sig_lvl.
+    sig_lvl: one of 90, 95 or 99, as for sig_lvl in datestamp().
     seed: optional seed for the bootstrap draws.
     """
     if sig_lvl not in (90, 95, 99):

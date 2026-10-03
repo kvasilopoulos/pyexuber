@@ -1,30 +1,33 @@
 """SSR/BIC bubble dating (Harvey, Leybourne & Sollis 2017). Ported from
-exuber's R/dating_hls.R (see docs/dating-and-root-inference.md in the
-umbrella repo for the full methodology and validation record).
+exuber's R/dating_hls.R. The methodology and validation record are in
+docs/dating-and-root-inference.md in the umbrella repo.
 
-Replaces PSY's threshold-crossing rule with a model-based SSR-minimisation
-+ BIC rule: four candidate regime-dummy regressions of Delta y_t on
-y_{t-1} (unit-root-to-end / unit-root-bubble-unit-root / unit-root-
-bubble-collapse / unit-root-bubble-collapse-unit-root), each fit by
-residual-sum-of-squares minimisation over candidate break fractions
-(jointly, per model), with BIC selecting among the four. Because the
-four models' dummy windows never overlap, each candidate partition's
-SSR is exactly the sum of independent per-segment closed-form OLS fits
-(a no-dummy segment has SSR = sum(Delta y_t^2); a dummy segment is a
-plain intercept+slope fit) -- a closed-form ratio of cumulative sums,
-the same style of O(1)-per-candidate lookup dating_pdc()'s
-_pdc_find_break() uses, so the joint grid search needs no repeated
-regression fit, only prefix-sum differences (matches exuber's own
-R/dating_hls.R exactly). The shared prefix-sum/model-fit machinery lives
-in exuber._hls_common (also used by dating_hlw() and dating_knp()).
+This method replaces the threshold-crossing rule of PSY with a model-based
+rule that minimises the sum of squared residuals (SSR) and selects the model
+by BIC. There are four candidate regime-dummy regressions of Delta y_t on
+y_{t-1}: unit root to the end, unit root then bubble then unit root, unit
+root then bubble then collapse, and unit root then bubble then collapse then
+unit root. Each is fitted by minimising the SSR over candidate break
+fractions, jointly within the model, and BIC then selects among the four.
 
-Indexing: breakpoints are internally 0-indexed "boundary counts" b in
-0..n1 (n1 = len(y)-1) -- y[b] is the observation at that boundary (same
-convention _pdc_find_break() uses). dating_hls()'s *output*
-origination/collapse/recovery add 1 to match R's own dating_hls()
-output number (R: idx[b + 1L], i.e. R's 1-indexed position b+1) --
-matching dating_pdc()'s existing "R-bit-for-bit" convention, not
-datestamp()'s 0-indexed Episode convention.
+The dummy windows of the four models never overlap. The SSR of a candidate
+partition is therefore exactly the sum of independent closed-form OLS fits
+for each segment. A segment without a dummy has SSR = sum(Delta y_t^2), and
+a segment with a dummy is a plain intercept-and-slope fit. Each fit is a
+closed-form ratio of cumulative sums, and it can be looked up in O(1) per
+candidate, as _pdc_find_break() in dating_pdc() does. The joint grid search
+needs no repeated regression fits, only differences of prefix sums, and it
+matches exuber's own R/dating_hls.R exactly. The shared prefix-sum and
+model-fit code lives in exuber._hls_common, which dating_hlw() and
+dating_knp() also use.
+
+Indexing: breakpoints are held internally as 0-indexed "boundary counts" b in
+0..n1 (n1 = len(y)-1), and y[b] is the observation at that boundary. This is
+the convention of _pdc_find_break(). The origination, collapse and recovery
+that dating_hls() returns add 1, so that they match the numbers in the output
+of R's own dating_hls() (R uses idx[b + 1L], the 1-indexed position b+1). This
+follows the "R bit for bit" convention that dating_pdc() already uses, and
+not the 0-indexed Episode convention of datestamp().
 """
 
 from dataclasses import dataclass
@@ -59,8 +62,8 @@ def dating_hls(data, trim: float = 0.05) -> DatingHlsResult:
     statistic) or dating_pdc() (a fixed 3/4-regime structure with
     sequentially, not jointly, estimated breaks), this jointly searches
     breakpoints within each of four candidate regime structures and lets
-    BIC pick the structure itself. Needs no critical values -- this is
-    model selection, not a hypothesis test.
+    BIC pick the structure itself. It needs no critical values, because it
+    selects a model and does not test a hypothesis.
     """
     x, columns = _to_2d_array(data)
     n, nc = x.shape

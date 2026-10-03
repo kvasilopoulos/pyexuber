@@ -1,9 +1,9 @@
-"""SSU/GSSU: stochastic explosive-coefficient tests (Kurozumi & Nishi
-2025), with their UR/GUR union-of-rejections procedure. Ported from
-exuber's R/ssu_test.R -- see docs/volatility-robustness.md (root repo)
-for the formulas, papers and independent validation this ports. Every
-critical value is Table I's published asymptotic constant (_KN_TABLE,
-also used by cusum_test.py).
+"""SSU and GSSU: tests for a stochastic explosive coefficient (Kurozumi & Nishi
+2025), with their UR/GUR procedure that takes the union of rejections. Ported
+from exuber's R/ssu_test.R. See docs/volatility-robustness.md (root repo) for
+the formulas, the papers and the independent validation of this port. Every
+critical value is the published asymptotic constant of Table I (_KN_TABLE,
+which cusum_test.py also uses).
 """
 
 from dataclasses import dataclass
@@ -33,8 +33,8 @@ _KN_TABLE = {
 
 def ssu_q(sig_lvl: float, stat: str = "ssu") -> float:
     """Kurozumi & Nishi (2025) Table I's published asymptotic critical
-    value for `stat` (their own 10,000-rep Monte Carlo) -- no simulation
-    needed."""
+    value for `stat` (from their own Monte Carlo with 10,000 replications).
+    No simulation is needed."""
     for lvl, crit in zip(_SSU_LEVELS, _KN_TABLE[stat], strict=True):
         if abs(sig_lvl - lvl) < 1e-8:
             return crit
@@ -71,10 +71,10 @@ def ssu_prefix_sums(y: np.ndarray) -> dict:
 
 def ssu_stat_path(ps: dict, hi_idx: np.ndarray, lo=0) -> np.ndarray:
     """t^{omega,c}_{r1,r2} for every window (lo, hi] of regression pairs,
-    `lo`/`hi_idx` broadcast against each other: lo = 0 is SSU's own
-    single-recursion path, a grid of (lo, hi) pairs is GSSU's -- see
-    exuber's R/ssu_test.R for the derivation of the bilinear cross-moment
-    expansion this implements."""
+    `lo`/`hi_idx` broadcast against each other: lo = 0 gives the
+    single-recursion path of SSU, and a grid of (lo, hi) pairs gives that of
+    GSSU. exuber's R/ssu_test.R derives the bilinear cross-moment expansion
+    that this function implements."""
     hi_idx = np.asarray(hi_idx)
     lo = np.asarray(lo)
 
@@ -176,13 +176,14 @@ def ssu_test(
     correlation with the plain ADF regression's innovations.
 
     type="ssu" is the single recursion (SADF's shape, minw = psy_minw(n));
-    type="gssu" also sup's over window starts (GSADF's shape, minw =
-    floor(n * (-0.004 + 2.24/sqrt(n))), the paper's own). union=True adds
-    the paper's union of rejections, UR = max(SADF/cv_sadf, SSU/cv_ssu)
-    (GUR with GSADF/GSSU) against the published ur/gur constant -- the
-    SADF/GSADF side is radf(data, lag=0) against `cv` (a RadfCv, default
-    radf_crit(n)); it needs the compiled `_core` extension. All critical
-    values are Table I's published asymptotic constants.
+    type="gssu" also takes the supremum over window starts, which gives the
+    shape of GSADF, with minw = floor(n * (-0.004 + 2.24/sqrt(n))) as in the
+    paper. union=True adds the union of rejections of the paper,
+    UR = max(SADF/cv_sadf, SSU/cv_ssu) (GUR with GSADF and GSSU), which is
+    compared with the published ur/gur constant. The SADF/GSADF side is
+    radf(data, lag=0) against `cv` (a RadfCv, by default radf_crit(n)), and it
+    needs the compiled `_core` extension. All critical values are the
+    published asymptotic constants of Table I.
     """
     if type not in ("ssu", "gssu"):
         raise ValueError("type must be 'ssu' or 'gssu'")

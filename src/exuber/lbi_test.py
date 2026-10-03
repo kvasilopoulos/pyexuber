@@ -1,15 +1,16 @@
-"""lbi_test() + monitor_lbi() -- Breitung & Diegel (2025)'s locally best
-invariant (LBI) test: the static, full-sample statistic and its own
-sequential (constant-boundary CUSUM) monitoring extension. Ported from
-exuber's R/lbi_test.R (R keeps both functions in one file -- matches).
-Both are the cheapest detectors in this package -- no bootstrap, no C++,
-and (for lbi_test) not even a table lookup: the null distribution is
-exactly standard normal (via stdlib's statistics.NormalDist, no scipy
+"""lbi_test() and monitor_lbi(): the locally best invariant (LBI) test of
+Breitung & Diegel (2025). lbi_test() is the static, full-sample statistic,
+and monitor_lbi() is its sequential monitoring extension with a
+constant-boundary CUSUM. Ported from exuber's R/lbi_test.R, which also keeps
+both functions in one file. Both are the cheapest detectors in this package.
+They need no bootstrap and no C++, and lbi_test() does not even need a table
+lookup, because its null distribution is exactly standard normal (computed
+with statistics.NormalDist from the standard library, so scipy is not
 needed).
 
-Indexing convention (differs from the R source, consistent with the rest
-of pyexuber -- see datestamp.py): every "alarm" value returned by
-monitor_lbi() is a 0-indexed position into the original input array.
+Indexing convention. This differs from the R source and is consistent with
+the rest of pyexuber (see datestamp.py): every "alarm" value that
+monitor_lbi() returns is a 0-indexed position into the original input array.
 """
 
 from dataclasses import dataclass
@@ -35,13 +36,14 @@ def lbi_test(data, sig_lvl: float = 95) -> LbiTestResult:
     """Breitung & Diegel (2025)'s static locally best invariant (LBI) test
     for a bubble known/assumed to span the entire sample:
     LBI = (y_T - y_0) / (sigma_tilde * sqrt(T - 1)), sigma_tilde^2 the
-    sample variance of first differences. Heteroskedasticity-robust by
-    construction, standard normal null distribution -- no bootstrap, no
-    simulation, no published table.
+    sample variance of first differences. The statistic is robust to
+    heteroskedasticity by construction and has a standard normal null
+    distribution, so it needs no bootstrap, no simulation and no published
+    table.
 
-    `sig_lvl` (one-sided, right-tailed -- positive bubbles only) may be any
-    value in [50, 100), since the critical value is a closed-form normal
-    quantile.
+    `sig_lvl` (one-sided and right-tailed, so only positive bubbles are
+    detected) may be any value in [50, 100), since the critical value is a
+    closed-form normal quantile.
     """
     _assert_sig_lvl(sig_lvl, choices=None)
     x, columns = _to_2d_array(data)
@@ -118,8 +120,8 @@ def monitor_lbi(
     bubble-like) monitoring observations; `0` (default) is the flat-weight
     "mCUSUM" variant, `> 0` is "wCUSUM" (the paper's own suggested default
     for a moderate power boost is `2`). Critical values (`sig_lvl`, one of
-    90, 95, 97.5, 99, 99.5 -- Breitung & Diegel's Table 1) are the same for
-    every `c_bar`.
+    90, 95, 97.5, 99 or 99.5, from Table 1 of Breitung & Diegel) are the same
+    for every `c_bar`.
 
     sigma_tilde^2 is estimated from the training window only (their own
     Section 4.2: "the training set ... is used for estimating nuisance

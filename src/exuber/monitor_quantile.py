@@ -1,25 +1,27 @@
-"""monitor_quantile() -- Wu, Shi & Wu (2025)'s QPWY and QPSY recursive
-quantile monitoring: the same per-window QR t-ratio as quantile_test(),
-computed over an expanding window [0, r) (QPWY, radf()'s own `badf`
-shape) or sup'd over every window start too (QPSY, `bsadf`'s shape).
-Ported from exuber's R/monitor_quantile.R.
+"""monitor_quantile(): the QPWY and QPSY recursive quantile monitors of
+Wu, Shi & Wu (2025). The statistic is the same per-window QR t-ratio as in
+quantile_test(). QPWY computes it over an expanding window [0, r), which has
+the shape of the `badf` sequence of radf(). QPSY also takes the supremum over
+every window start, which has the shape of `bsadf`. Ported from exuber's
+R/monitor_quantile.R.
 
-Critical values come from their Theorem 1 / Corollary 1-2: under the null
-each window's t-ratio converges to delta*Q_{r1,r2} + sqrt(1-delta^2)*Z_{r1,r2},
-Q the Dickey-Fuller t functional and Z its counterpart driven by an
-independent Brownian motion. Z is N(0,1) for any one window but varies
-across windows, so a monitoring boundary (a functional of the whole path)
-must simulate it as a process -- the original port drew one z per
-replicate, which oversized the test (see docs/alternative-paradigms.md).
-_quantile_boundary_sim() simulates discretized Q and Z for every window
-via prefix sums, O(1) per window, no QR fits and no radf() call.
+The critical values come from Theorem 1 and Corollaries 1 and 2 of the paper.
+Under the null, the t-ratio of each window converges to
+delta*Q_{r1,r2} + sqrt(1-delta^2)*Z_{r1,r2}, where Q is the Dickey-Fuller t
+functional and Z is its counterpart driven by an independent Brownian motion.
+Z is N(0,1) for any single window but varies across windows. A monitoring
+boundary is a functional of the whole path, so it must simulate Z as a
+process. The original port drew one z for each replicate, which oversized the
+test (see docs/alternative-paradigms.md). _quantile_boundary_sim() simulates
+the discretized Q and Z for every window by prefix sums, at O(1) per window
+and with no QR fits and no call to radf().
 
-Indexing convention (differs from the R source, consistent with the rest
-of pyexuber -- see datestamp.py): the "alarm" value returned here is a
+Indexing convention. This differs from the R source and is consistent with
+the rest of pyexuber (see datestamp.py). The "alarm" value returned here is a
 0-indexed position into the original input array.
 
-RNG note: uses numpy's Generator, not R's -- see quantile_test()'s own
-module-level note.
+Random numbers. The module uses numpy's Generator and not R's generator. See
+the module-level note of quantile_test().
 """
 
 import warnings
@@ -44,15 +46,16 @@ def _quantile_window_stat(yy: np.ndarray, tau: float) -> float:
 
 
 def _qpwy_stat_path(y: np.ndarray, tau: float, r_idx: np.ndarray) -> np.ndarray:
-    """QPWY_r(tau) for every window length r in `r_idx` -- window fixed at
-    [0, r) (start=0, matching radf()'s own badf convention)."""
+    """QPWY_r(tau) for every window length r in `r_idx`, with the window fixed at
+    [0, r) (start=0, as in the badf convention of radf())."""
     return np.array([_quantile_window_stat(y[:r], tau) for r in r_idx])
 
 
 def _qpsy_stat_path(y: np.ndarray, tau: float, r_idx: np.ndarray, minw: int) -> np.ndarray:
-    """QPSY_r(tau, r0) for every window length r in `r_idx` -- sup over
-    window starts 0, ..., r - minw - 1 (every window keeps >= minw
-    regression observations, the floor QPWY's first window has)."""
+    """QPSY_r(tau, r0) for every window length r in `r_idx`, taking the supremum over
+    window starts 0, ..., r - minw - 1. Every window keeps at least minw
+    regression observations, which is the floor of the first window of
+    QPWY."""
     return np.array(
         [max(_quantile_window_stat(y[r1:r], tau) for r1 in range(r - minw)) for r in r_idx]
     )
@@ -122,27 +125,27 @@ def monitor_quantile(
     `type="qpwy"` uses the expanding window [0, r) (radf()'s own `badf`
     convention); `type="qpsy"` also sup's over every window start (`bsadf`).
 
-    The point statistic needs genuine QR fits: O(T) for QPWY, O(T^2) for
-    QPSY (slow -- tens of seconds per series at n = 200 with this
-    package's IRLS solver).
+    The point statistic needs real QR fits, which cost O(T) for QPWY and O(T^2)
+    for QPSY. QPSY is slow: with the IRLS solver of this package it takes tens
+    of seconds per series at n = 200.
 
-    A single flat boundary is used per series (not one value per r): the
-    quantile of each simulated null path's own supremum (mirrors
-    radf_mc_cv()'s own sadf_cv construction), which controls the
-    first-crossing false-alarm rate.
+    Each series gets a single flat boundary, and not one value for each r. It is
+    the quantile of the supremum of each simulated null path, built in the
+    same way as sadf_cv in radf_mc_cv(), and it controls the first-crossing
+    false-alarm rate.
 
     Caveat: the boundary is asymptotic. It is well sized near the median
     (3.5-4.0% at a nominal 5%, Gaussian and t3, tau = 0.5), but the small
     early windows oversize it away from the median, QPSY badly even with
     Gaussian data (35% at tau = 0.9; t3: 21% at tau = 0.8, 44% at 0.9;
     n = 100). QPWY with t3: 7.5-8.5% at tau = 0.2/0.8, 12.5% at 0.9,
-    n = 150 -- R's numbers, see
-    docs/alternative-paradigms.md). type="qpsy" with tau away from 0.5
-    emits a UserWarning. The paper's bootstrap critical values are not
+    n = 150. These are R's numbers; see
+    docs/alternative-paradigms.md. Using type="qpsy" with tau away from 0.5
+    issues a UserWarning. The paper's bootstrap critical values are not
     ported.
 
-    RNG note: uses numpy's Generator, not R's -- see quantile_test()'s
-    own module-level note.
+    Random numbers: the function uses numpy's Generator and not R's generator.
+    See the module-level note of quantile_test().
     """
     if type not in ("qpwy", "qpsy"):
         raise ValueError("type must be 'qpwy' or 'qpsy'")

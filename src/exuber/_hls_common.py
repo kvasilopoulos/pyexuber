@@ -1,11 +1,11 @@
-"""Shared SSR/BIC segment-fitting machinery (Harvey, Leybourne & Sollis
-2017), used by dating_hls(), dating_hlw() and dating_knp() -- all three
-build on the same closed-form prefix-sum segment fits, so the helpers
-live here rather than in any one of the three.
+"""Shared SSR/BIC segment-fitting machinery (Harvey, Leybourne & Sollis 2017).
+dating_hls(), dating_hlw() and dating_knp() all build on the same
+closed-form prefix-sum segment fits, so the helpers live here and not in any
+one of the three.
 
-Indexing: breakpoints are internally 0-indexed "boundary counts" b in
-0..n1 (n1 = len(y)-1) -- y[b] is the observation at that boundary (same
-convention dating_pdc()'s _pdc_find_break() uses).
+Indexing: breakpoints are held internally as 0-indexed "boundary counts" b in
+0..n1 (n1 = len(y)-1), and y[b] is the observation at that boundary. This is
+the same convention as _pdc_find_break() in dating_pdc().
 """
 
 import math
@@ -58,7 +58,7 @@ def _hls_segment_ssr(ps: _HlsPrefixSums, lo, hi, fit: bool):
 def _hls_segment_coef(ps: _HlsPrefixSums, lo, hi) -> tuple[float, float]:
     """Intercept + slope OLS coefficients of z on x over segment (lo, hi]
     (same closed form as _hls_segment_ssr(..., fit=True), returning the
-    coefficients themselves rather than the SSR -- used by dating_knp())."""
+    coefficients themselves and not the SSR. dating_knp() uses it)."""
     sx = ps.cx[hi] - ps.cx[lo]
     sxx = ps.cx2[hi] - ps.cx2[lo]
     sz = ps.cz[hi] - ps.cz[lo]

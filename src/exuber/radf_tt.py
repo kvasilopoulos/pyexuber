@@ -1,11 +1,11 @@
-"""STADF/GSTADF -- time-transformed test for explosive bubbles under
-non-stationary volatility (Kurozumi, Skrobotov & Tsarev 2024). Ported
-from exuber's R/radf_tt.R -- see docs/volatility-robustness.md (root
-repo) for the formulas, papers and independent validation this ports.
+"""STADF and GSTADF, the time-transformed test for explosive bubbles under
+non-stationary volatility (Kurozumi, Skrobotov & Tsarev 2024). Ported from
+exuber's R/radf_tt.R. See docs/volatility-robustness.md (root repo) for the
+formulas, the papers and the independent validation of this port.
 
-RNG note: uses numpy's Generator, not R's RNG -- see sim.py's module
-docstring; a given `seed` will not reproduce the same draws as R's
-radf_tt_cv().
+Random numbers. The module uses numpy's Generator and not R's generator, so a
+given `seed` does not reproduce the draws of R's radf_tt_cv(). See the module
+docstring of sim.py.
 """
 
 import numpy as np
@@ -86,7 +86,7 @@ def radf_tt(
     volatility (STADF/GSTADF), Kurozumi, Skrobotov & Tsarev (2024): the
     series is time-deformed using a nonparametric variance-profile
     estimate, after which the usual (homoskedastic) recursive sup-ADF
-    critical values apply -- no bootstrap needed. Pair with
+    critical values apply, so no bootstrap is needed. Pair it with
     `radf_tt_cv()`.
     """
     x, columns = _to_2d_array(data)

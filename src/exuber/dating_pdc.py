@@ -1,15 +1,15 @@
-"""Sequential sample-splitting bubble dating: Pang, Du & Chong (2021) /
-Kurozumi & Skrobotov (2023) sequential sample-splitting bubble dating
-(3- or 4-regime, OLS or volatility-weighted WLS). Ported from exuber's
-R/dating_pdc.R (see docs/dating-and-root-inference.md in the umbrella
-repo for the full methodology and validation record).
+"""Sequential sample-splitting bubble dating, after Pang, Du & Chong (2021) and
+Kurozumi & Skrobotov (2023). It supports three or four regimes, with OLS or
+volatility-weighted WLS. Ported from exuber's R/dating_pdc.R. The methodology
+and validation record are in docs/dating-and-root-inference.md in the
+umbrella repo.
 
-Indexing note: dating_pdc()'s origination/collapse/recovery are
-1-indexed row positions into `data` (matching R's own default
-`idx = 1:n` when no date index is supplied) -- NOT the 0-indexed
-convention datestamp()'s Episode uses. Kept 1-indexed deliberately so a
-number reported here matches the equivalent R run bit-for-bit rather
-than silently differing by one.
+Indexing note: the origination, collapse and recovery that dating_pdc()
+returns are 1-indexed row positions into `data`. This matches R's own default
+`idx = 1:n` when no date index is supplied. They do not follow the 0-indexed
+convention of the Episode in datestamp(). We keep them 1-indexed on purpose,
+so that a number reported here matches the equivalent R run bit for bit and
+does not silently differ by one.
 """
 
 from dataclasses import dataclass
@@ -83,7 +83,7 @@ def _nw_spot_vol(
         raise ValueError("kernel must be 'gaussian' or 'uniform'")
     tn = len(e)
     t_grid = np.arange(1, tn + 1) / tn
-    s = t_grid[1:]  # (2:Tn)/Tn -- t_grid without its first point
+    s = t_grid[1:]  # (2:Tn)/Tn, that is, t_grid without its first point
     e2 = e[1:] ** 2  # e_2..e_Tn squared
 
     if kernel == "gaussian":
@@ -136,9 +136,9 @@ def dating_pdc(
     Kurozumi & Skrobotov 2023). Fits a fixed regime structure (unit-root,
     explosive, stationary-collapse, and optionally a final unit-root
     recovery regime) via sequential O(T) no-intercept AR(1) breakpoint
-    search -- collapse first, then origination on the left subsample, then
-    (regimes=4) recovery on the right subsample -- no joint grid search or
-    BIC model selection.
+    search. It finds the collapse first, then the origination on the left
+    subsample and, with regimes=4, the recovery on the right subsample. There
+    is no joint grid search and no BIC model selection.
 
     type="wls" adds Kurozumi & Skrobotov (2023)'s volatility correction:
     fit OLS first, smooth its fitted regime residuals' squares via a

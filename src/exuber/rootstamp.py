@@ -1,14 +1,14 @@
-"""Root inference: Guo, Sun & Wang (2019) normal-t CI and Phillips-
-Magdalinos (2007) Cauchy CI for the explosive AR(1) root, plus implied
-doubling time. Ported from exuber's R/rootstamp.R (see
-docs/dating-and-root-inference.md in the umbrella repo for the full
-methodology and validation record).
+"""Root inference for the explosive AR(1) root. The module provides the normal-t
+confidence interval of Guo, Sun & Wang (2019) and the Cauchy confidence
+interval of Phillips & Magdalinos (2007), together with the implied doubling
+time. Ported from exuber's R/rootstamp.R. The methodology and validation
+record are in docs/dating-and-root-inference.md in the umbrella repo.
 
-Deviation from R: R's rootstamp.radf_obj(object, ds) reads its input
-series back out of `object` (a radf_obj, which carries its own data via
-mat()). Python's RadfResult doesn't retain the raw data (see
-datestamp.py's docstring for the same gap), so rootstamp_episodes() here
-takes the original `data` as an explicit argument instead.
+Deviation from R. R's rootstamp.radf_obj(object, ds) reads its input series
+back out of `object`, a radf_obj that carries its own data through mat().
+The RadfResult of Python does not keep the raw data (see the docstring of
+datestamp.py for the same gap), so rootstamp_episodes() takes the original
+`data` as an explicit argument.
 """
 
 import math
@@ -67,9 +67,9 @@ def rootstamp(y, sig_lvl: int = 95, type: str = "normal") -> RootstampEst:
         z = NormalDist().inv_cdf(1 - alpha / 2)
         half_width = z * se
     else:
-        # standard Cauchy quantile function, tan(pi*(p - 1/2)) -- identical to
-        # Student's t at df=1, which is how R's qcauchy()/qt(., df=1) is
-        # verified in docs/dating-and-root-inference.md.
+        # standard Cauchy quantile function, tan(pi*(p - 1/2)). It is identical to
+        # Student's t at df=1, which is how docs/dating-and-root-inference.md
+        # verifies R's qcauchy() and qt(., df=1).
         q = math.tan(math.pi * (1 - alpha / 2 - 0.5))
         half_width = q * (rho**2 - 1) / rho**n
     rho_ci = (rho - half_width, rho + half_width)
