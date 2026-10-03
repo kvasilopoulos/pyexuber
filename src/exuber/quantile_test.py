@@ -1,24 +1,24 @@
-"""quantile_test() -- Wu, Shi & Wu (2025)'s "global test": a quantile-
-regression (QR) analogue of the DF t-ratio, testing for a bubble via
-the tau-th conditional quantile of y_t on y_{t-1} instead of the
+"""quantile_test(): the "global test" of Wu, Shi & Wu (2025). It is a
+quantile-regression (QR) analogue of the DF t-ratio. It tests for a bubble
+through the tau-th conditional quantile of y_t given y_{t-1}, instead of the
 conditional mean. Ported from exuber's R/quantile_test.R. See
-docs/alternative-paradigms.md, "Quantile-based detection". A single
-static test, not a recursive scan -- compare radf()'s single-shot `adf`
-statistic, not its recursive `bsadf`.
+docs/alternative-paradigms.md, "Quantile-based detection". It is a single
+static test and not a recursive scan, so it compares with the single-shot
+`adf` statistic of radf() and not with its recursive `bsadf`.
 
-QR solver: no simplex/interior-point LP package (statsmodels, scipy) is
-a pyexuber dependency, and adding one for a single-predictor fit is more
-than this module needs (ponytail: rung 5, prefer an already-installed
-dependency; none fits, and the fit itself is genuinely small). Instead,
-iteratively reweighted least squares (IRLS, Schlossmacher 1973's
-approach to the asymmetric L1/check-function loss) via plain numpy:
-converges to the exact QR solution for continuous data with no ties, to
-well within the tolerance this module's own tests use.
+QR solver. No simplex or interior-point LP package (statsmodels, scipy) is a
+dependency of pyexuber, and adding one for a fit with a single predictor
+would be more than this module needs. None of the installed dependencies
+fits, and the fit itself is small. We therefore use iteratively reweighted
+least squares (IRLS) in plain numpy, which is the approach of Schlossmacher
+(1973) to the asymmetric L1 (check-function) loss. For continuous data
+without ties it converges to the exact QR solution, well within the
+tolerance of the tests of this module.
 
-RNG note: uses numpy's Generator, not R's RNG -- a given `seed` will not
-reproduce the same critical-value draws as the R function of the same
-name (see sim.py's module docstring). The point statistics themselves
-(tstat, delta) are fully deterministic and match R bit-for-bit.
+Random numbers. The module uses numpy's Generator and not R's generator, so a
+given `seed` does not reproduce the critical-value draws of the R function
+with the same name (see the module docstring of sim.py). The point statistics
+(tstat and delta) are fully deterministic and match R bit for bit.
 """
 
 from dataclasses import dataclass
@@ -48,8 +48,9 @@ def _dnorm(z: np.ndarray) -> np.ndarray:
 def _quantile_check_density(u: np.ndarray, tau: float) -> tuple[float, float]:
     """b_tau (the tau-th sample quantile of u) and f_hat (a kernel density
     estimate of u's density at b_tau, via a Gaussian kernel with
-    bw.nrd0's bandwidth) -- needed to studentize the QR coefficient the
-    way OLS's residual-variance estimate studentizes the DF t-ratio."""
+    bw.nrd0's bandwidth). We need both to studentize the QR coefficient, in the
+    way that the residual-variance estimate of OLS studentizes the DF
+    t-ratio."""
     b_tau = _quantile_narm(u, tau)
     h = _bw_nrd0(u)
     f_hat = np.mean(_dnorm((b_tau - u) / h)) / h
@@ -79,11 +80,11 @@ def _quantile_regression_fit(
 
 
 def _quantile_adf_tstat(y: np.ndarray) -> float:
-    """Plain OLS ADF (intercept + one lag, no augmentation) t-statistic --
-    used only to simulate quantile_test()'s Q component (the standard,
-    demeaned Dickey-Fuller t-statistic distribution, verified in
-    docs/alternative-paradigms.md to be bit-for-bit identical to radf()'s
-    own single-shot `adf` field)."""
+    """Plain OLS ADF (intercept + one lag, no augmentation) t-statistic.
+    It is used only to simulate the Q component of quantile_test(), which is
+    the standard demeaned Dickey-Fuller t-statistic distribution.
+    docs/alternative-paradigms.md verifies that it is bit for bit identical to
+    the single-shot `adf` field of radf()."""
     n = len(y)
     dy = y[1:] - y[:-1]
     ylag = y[:-1]
@@ -139,9 +140,10 @@ def quantile_test(
     random-walk-plus-OLS-t-stat way radf_mc_cv() simulates its own `adf`
     critical value).
 
-    RNG note: uses numpy's Generator, not R's -- a given `seed` will not
-    reproduce the same critical-value draws as R's quantile_test() (the
-    point statistics tstat/tau/delta themselves match bit-for-bit).
+    Random numbers: the function uses numpy's Generator and not R's generator,
+    so a given `seed` does not reproduce the critical-value draws of R's
+    quantile_test(). The point statistics tstat, tau and delta do match bit
+    for bit.
     """
     _assert_sig_lvl(sig_lvl)
     if tau_grid is None:

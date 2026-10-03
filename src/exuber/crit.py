@@ -1,13 +1,15 @@
 """Precomputed Monte Carlo critical values from the shared exuber store.
 
-Same object store exuber's R client (exuber/R/crit-bucket.R) reads: one
-small xz-compressed binary per (lag, n), served read-only by the Railway
-proxy (exubercrit/scripts/exuber-fn.ts). Fetched tables are cached
-on disk so a given (n, lag) is downloaded once per machine.
+The store is the same object store that exuber's R client
+(exuber/R/crit-bucket.R) reads. It holds one small xz-compressed binary file
+for each (lag, n), served read-only by the Railway proxy
+(exubercrit/scripts/exuber-fn.ts). Fetched tables are cached on disk, so a
+given (n, lag) is downloaded once per machine.
 
-Binary layout (little-endian): int32 x4 = n, minw, lag, nrows; float64 x3
-each for adf/sadf/gsadf (90/95/99%); float64 x(nrows*3) bsadf, row-major.
-badf_cv isn't stored -- it's the constant PWY asymptotic tiling.
+Binary layout (little-endian): four int32 values (n, minw, lag, nrows);
+three float64 values each for adf, sadf and gsadf (90, 95 and 99%); then
+nrows*3 float64 values for bsadf in row-major order. badf_cv is not stored,
+because it is the constant PWY asymptotic tiling.
 """
 
 import lzma

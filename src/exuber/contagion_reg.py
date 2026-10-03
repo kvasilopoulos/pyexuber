@@ -1,16 +1,18 @@
 """Contagion regression (Greenaway-McGrevy & Phillips 2016). Ported from
-exuber's R/contagion_reg.R -- see docs/multivariate.md for the full
-evaluation this implements.
+exuber's R/contagion_reg.R. See docs/multivariate.md for the evaluation that
+this code implements.
 
-Section 2.6's functional (time-varying) coefficient regression: a
-fixed-width rolling-window AR(1) coefficient sequence for a "core"
-series and a "satellite" series y (eq. 1), related by a Nadaraya-Watson
-kernel regression at a chosen delay d (eq. 6), with the bandwidth
-selected by leave-one-out cross-validation (eq. 7). Minimum-viable
-subset: eq. 8's automatic delay search is not implemented -- call
-contagion_reg() once per candidate d and compare fit if that's needed.
-The source paper performs no formal inference on the coefficient itself
-(point estimation/plotting only), so there is no critical value here.
+This is the functional (time-varying) coefficient regression of Section 2.6.
+It computes a fixed-width rolling-window AR(1) coefficient sequence for a
+"core" series and for a "satellite" series y (eq. 1). A Nadaraya-Watson
+kernel regression at a chosen delay d (eq. 6) relates the two sequences, and
+the bandwidth is selected by leave-one-out cross-validation (eq. 7).
+
+Only a minimal subset is implemented. The automatic delay search of eq. 8 is
+missing, so to search over delays, call contagion_reg() once for each
+candidate d and compare the fit. The source paper does no formal inference
+on the coefficient itself (it gives point estimates and plots only), so this
+function has no critical value.
 """
 
 from dataclasses import dataclass
@@ -51,8 +53,8 @@ def _contagion_fixed_window_beta(y: np.ndarray, S: int) -> tuple[np.ndarray, np.
 
 def _contagion_kernel_weights(s: np.ndarray, T_len: int, r: np.ndarray, h: float) -> np.ndarray:
     """eq. 6's Gaussian kernel weight K_hs(r) = (1/h)*K((s/T-r)/h), for
-    every (position, evaluation point) pair -- rows are positions `s`,
-    columns are evaluation points `r`."""
+    every (position, evaluation point) pair. The rows are positions `s` and
+    the columns are evaluation points `r`."""
     z = (s[:, None] / T_len - r[None, :]) / h
     return np.exp(-0.5 * z**2) / np.sqrt(2 * np.pi) / h
 
@@ -61,8 +63,9 @@ def _align_shifted(
     t_core: np.ndarray, bcore_c: np.ndarray, t_j: np.ndarray, bj_c: np.ndarray, d: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Aligns beta_j at date s with beta_core at date s-d (both centered),
-    dropping s where s-d falls outside beta_core's own date range --
-    R's named-vector indexing, done here via an index lookup."""
+    dropping s where s-d falls outside the date range of beta_core.
+    R does this by indexing a named vector, and here we use an index
+    lookup."""
     pos = {int(t): i for i, t in enumerate(t_core)}
     idx = np.array([pos.get(int(t) - d, -1) for t in t_j])
     valid = idx >= 0
@@ -80,9 +83,9 @@ def _contagion_nw_delta2(
     d: int,
 ) -> np.ndarray:
     """eq. 6: delta_2j(r; h, d), the Nadaraya-Watson local-constant kernel
-    regression coefficient -- a closed-form ratio of two kernel-weighted
-    sums (a no-intercept WLS solution). Centering (beta-tilde) uses each
-    series' own full range, before any delay shift."""
+    regression coefficient. It is a closed-form ratio of two kernel-weighted
+    sums (a no-intercept WLS solution). The centering (beta-tilde) uses the
+    full range of each series, before any delay shift."""
     bj_c = beta_j - beta_j.mean()
     bcore_c = beta_core - beta_core.mean()
     s, bj_c, core_shift = _align_shifted(t_core, bcore_c, t_j, bj_c, d)
@@ -120,10 +123,11 @@ def _contagion_loocv_sse(
 
 
 def _golden_section_min(f, lo: float, hi: float, tol: float = 1e-5, max_iter: int = 100) -> float:
-    """Bounded 1-D minimization -- exuber's R source uses stats::optimize()
-    (golden section + successive parabolic interpolation); numpy has no
-    bounded scalar minimizer built in, so this is the plain golden-section
-    half of that, sufficient for eq. 7's unimodal-in-practice LOOCV SSE."""
+    """Bounded 1-D minimization. exuber's R source uses stats::optimize()
+    (golden section plus successive parabolic interpolation). numpy has no
+    bounded scalar minimizer, so this is the plain golden-section half of
+    that method, which suffices for the LOOCV SSE of eq. 7 because it is
+    unimodal in practice."""
     phi = (np.sqrt(5) - 1) / 2
     a, b = lo, hi
     c = b - phi * (b - a)
@@ -181,16 +185,18 @@ def contagion_reg(
     Estimates the time-varying contagion coefficient: a fixed-window
     rolling AR(1) coefficient sequence for a "core" series and a
     "satellite" series y, related by a Nadaraya-Watson kernel regression
-    at a chosen delay d -- how strongly, and how (time-varying), the
-    core's local persistence transmits to y, d periods later.
+    at a chosen delay d. The result shows how strongly, and how (in a
+    time-varying way), the local persistence of the core is transmitted to y
+    d periods later.
 
-    Minimum-viable subset: the fixed-window AR(1) sequence (eq. 1), the
-    Nadaraya-Watson regression at a single supplied d (eq. 6), and
-    leave-one-out cross-validated bandwidth selection (eq. 7). eq. 8's
-    automatic delay search is not implemented -- call this once per
-    candidate d and compare fit. Not a hypothesis test: the source paper
-    performs no formal inference on the coefficient (no confidence bands,
-    no significance test) -- neither does this, by design.
+    This is a minimal subset. It has the fixed-window AR(1) sequence (eq. 1),
+    the Nadaraya-Watson regression at a single supplied d (eq. 6) and
+    leave-one-out cross-validated bandwidth selection (eq. 7). The automatic
+    delay search of eq. 8 is not implemented, so call this once for each
+    candidate d and compare the fit. It is not a hypothesis test. The source
+    paper does no formal inference on the coefficient (it gives no confidence
+    bands and no significance test), and neither does this function, by
+    design.
 
     y: satellite (dependent) series. core: reference series, same length.
     S: fixed rolling-window width (default floor(0.33*len(y))).

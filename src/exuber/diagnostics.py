@@ -1,11 +1,11 @@
-"""Per-series test verdicts. Ports exuber's R/radf-methods.R
-diagnostics.radf_obj() and summary.radf_obj().
+"""Per-series test verdicts. Ports diagnostics.radf_obj() and
+summary.radf_obj() from exuber's R/radf-methods.R.
 
 Divergence from R: R labels a non-rejection with the string "Reject" in
-`sig` (and tidy.dg_radf() maps it to NA); here it is None. R's summary()
-returns a list of tibbles; here a dict of pandas DataFrames with the same
-columns (stat, tstat, 90, 95, 99) -- pandas is an optional extra, as for
-tidy().
+`sig`, and tidy.dg_radf() maps it to NA. Here it is None. R's summary()
+returns a list of tibbles, and here it returns a dict of pandas DataFrames
+with the same columns (stat, tstat, 90, 95, 99). pandas is an optional extra,
+as for tidy().
 """
 
 from dataclasses import dataclass
@@ -41,7 +41,7 @@ def _check(result: RadfResult, cv: RadfCv | RadfSbCv) -> None:
     if not isinstance(cv, (RadfCv, RadfSbCv)):
         raise TypeError("cv must be a RadfCv or RadfSbCv")
     if cv.minw != result.minw or cv.n != result.n:
-        raise ValueError("cv and result disagree on n/minw -- simulate cv for this sample")
+        raise ValueError("cv and result disagree on n/minw; simulate cv for this sample")
 
 
 def _level(tstat: float, crit: np.ndarray) -> str | None:

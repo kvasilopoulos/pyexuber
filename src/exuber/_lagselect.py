@@ -1,9 +1,10 @@
-"""Shared OLS lag-selection / null-AR-fit subsystem. Port of exuber's
-R/radf_wb.R (`adf_res`, `lag_select`, `lag_select_table`) and the two
-regression-matrix builders in R/unroot.R (`unroot_adf`, `unroot_adf_null`)
-that back them. This is internal plumbing shared by the Phillips-Shi wild
-bootstrap (`radf_wb_ps_cv`) and the sieve bootstrap's automatic lag
-selection (`radf_sb_cv(type="aic"/"bic")`) -- see cv.py.
+"""Shared OLS lag-selection and null-AR-fit subsystem. It ports `adf_res`,
+`lag_select` and `lag_select_table` from exuber's R/radf_wb.R, together with
+the two regression-matrix builders in R/unroot.R (`unroot_adf` and
+`unroot_adf_null`) that they rely on. This is internal plumbing for two
+callers: the Phillips-Shi wild bootstrap (`radf_wb_ps_cv`) and the automatic
+lag selection of the sieve bootstrap (`radf_sb_cv(type="aic"/"bic")`). See
+cv.py.
 """
 
 from dataclasses import dataclass
@@ -28,9 +29,10 @@ def unroot_adf(x: np.ndarray, lag: int) -> np.ndarray:
 
 
 def unroot_adf_null(x: np.ndarray, lag: int) -> np.ndarray:
-    """Port of R's unroot_adf_null(): columns dy, ct, dy_lags1..lag -- no
-    level term. This is the null AR(lag)-in-differences DGP regression
-    fit by adf_res() and resampled by the Phillips-Shi wild bootstrap."""
+    """Port of R's unroot_adf_null(): columns dy, ct, dy_lags1..lag,
+    with no level term. This is the regression for the null
+    AR(lag)-in-differences DGP, which adf_res() fits and the Phillips-Shi
+    wild bootstrap resamples."""
     x = np.asarray(x, dtype=float)
     dx_embed = _embed(np.diff(x), lag + 1)
     dy = dx_embed[:, 0]

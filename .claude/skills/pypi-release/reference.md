@@ -1,4 +1,4 @@
-# PyPI / PyPA publishing rules — reference (checked 2026-09-14)
+# PyPI and PyPA publishing rules: reference (checked 2026-09-14)
 
 Condensed from packaging.python.org (tutorial, "Writing your pyproject.toml",
 "Publishing with GitHub Actions"), docs.pypi.org (storage limits, yanking,
@@ -15,19 +15,19 @@ Strongly recommended, all read by PyPI's project page:
 
 | Key | Rule |
 |---|---|
-| `name` | letters, digits, `.`, `_`, `-`; PyPI normalizes (PEP 503: lowercase, runs of `.-_` → `-`). Distribution name may differ from import name (e.g. `pyexuber` / `exuber`) — say so in the README's first lines. Abandoned names go through PEP 541. |
+| `name` | letters, digits, `.`, `_`, `-`; PyPI normalizes (PEP 503: lowercase, runs of `.-_` → `-`). The distribution name may differ from the import name (for example `pyexuber` and `exuber`), and the first lines of the README should say so. Abandoned names go through PEP 541. |
 | `version` | PEP 440 (`1.2.0`, `1.2.0rc1`, `1.2.0.post1`, `1.2.0.dev3`). Local versions (`+abc`) are rejected by PyPI. |
 | `description` | one sentence; shown in search results. |
 | `readme` | file path; content type inferred from `.md`/`.rst`, or `{file=, content-type=}`. Rendered with GitHub-flavoured Markdown; unrenderable → PyPI shows raw text (not a rejection; `twine check` catches it). |
 | `requires-python` | e.g. `">=3.10"`. Installer-enforced. Don't add an upper bound: it makes every future Python resolve to old releases. |
-| `license` | SPDX expression string: `"MIT"`, `"GPL-3.0-or-later"`, `"MIT AND (Apache-2.0 OR BSD-2-Clause)"`, `"LicenseRef-Proprietary"`. Deprecated: `license = {file=...}` / `{text=...}` table and `License :: OSI Approved :: ...` classifiers — PyPI rejects an upload that has both a license expression and a License classifier. |
+| `license` | SPDX expression string: `"MIT"`, `"GPL-3.0-or-later"`, `"MIT AND (Apache-2.0 OR BSD-2-Clause)"`, `"LicenseRef-Proprietary"`. Deprecated: `license = {file=...}` / `{text=...}` table and `License :: OSI Approved :: ...` classifiers are deprecated, and PyPI rejects an upload that has both a license expression and a License classifier. |
 | `license-files` | globs, forward slashes, no `..`: `["LICENSE*", "AUTHORS*"]`. Default in most backends is `LICEN[CS]E*`, `COPYING*`, `NOTICE*`, `AUTHORS*`. |
 | `authors` / `maintainers` | `[{name=, email=}]`. |
 | `keywords` | list; only affects search. |
 | `classifiers` | exact strings from https://pypi.org/classifiers/. Unknown ones are rejected at upload. Useful: `Development Status :: 3 - Alpha` … `5 - Production/Stable`; `Programming Language :: Python :: 3` + one per supported minor (PyPI sidebar and badge tooling read these; `requires-python` is what actually restricts installs); `Operating System :: ...`; `Intended Audience :: Science/Research`; `Topic :: Scientific/Engineering`; `Typing :: Typed` (only if `py.typed` ships in the wheel). `Private :: Do Not Upload` blocks accidental upload of internal packages. |
 | `dependencies` | PEP 508 strings with markers. Lower bounds, not `==` pins (pins belong in lockfiles). |
 | `[project.optional-dependencies]` | extras (`pip install pkg[pandas]`); an extra may reference others: `all = ["pkg[pandas,polars]"]`. |
-| `[dependency-groups]` (PEP 735) | dev/test tooling; not published, not installable from PyPI — the right place for pytest/ruff. |
+| `[dependency-groups]` (PEP 735) | dev/test tooling; not published, not installable from PyPI, which makes it the right place for pytest and ruff. |
 | `[project.urls]` | PyPI recognises (case-insensitive) `Homepage`, `Documentation`, `Repository`/`Source`, `Issues`/`Bug Tracker`, `Changelog`/`Release Notes`, `Funding`/`Sponsor` and gives them icons. Anything else is listed as a plain link. |
 | `[project.scripts]` / `[project.entry-points."group"]` | console scripts / plugins. |
 | `dynamic` | list any field the backend fills in (typically `version`); a field may not be both static and dynamic. |

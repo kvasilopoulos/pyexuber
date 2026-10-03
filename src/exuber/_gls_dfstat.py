@@ -1,7 +1,7 @@
-"""Shared no-intercept recursive-DF machinery (GLS-demeaned STADF family),
-used by radf_tt() and radf_sign()/radf_sign_dm() -- both apply the same
-gls_dfstat_grid() to a differently-transformed series, so the shared
-grid/critical-value drivers live here rather than in either module.
+"""Shared no-intercept recursive DF machinery (the GLS-demeaned STADF family).
+radf_tt() and radf_sign()/radf_sign_dm() both use it. Each applies the same
+gls_dfstat_grid() to a differently transformed series, so the shared grid and
+critical-value drivers live here and not in either module.
 """
 
 import numpy as np
@@ -15,9 +15,9 @@ def gls_dfstat_grid(y: np.ndarray, minw: int) -> dict:
     Kurozumi, Skrobotov & Tsarev (2024). `y` is a levels series; internally
     demeaned by its first observation (not OLS-demeaned the way radf()'s
     own unroot()/exubercore regression is). Fully vectorized over the
-    (r1, r2) grid via cumulative sums, same construction as exuber's R
-    gls_dfstat_grid() -- see that function's own comments for the formula
-    derivation. Returns the same badf/bsadf/adf/sadf/gsadf shape radf()
+    (r1, r2) grid via cumulative sums, using the same construction as
+    exuber's R gls_dfstat_grid(), whose comments derive the formula. It
+    returns the same badf/bsadf/adf/sadf/gsadf shape radf()
     does, one row per candidate window end (length n - minw)."""
     y = np.asarray(y, dtype=float)
     yc = y - y[0]

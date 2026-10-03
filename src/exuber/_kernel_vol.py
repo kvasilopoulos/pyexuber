@@ -1,7 +1,7 @@
-"""Kernel spot-volatility estimator, shared by radf_kp() (kernel-purge)
-and radf_sbz()/radf_sbz_union() (SBZ) -- both need the same Nadaraya-
-Watson spot-variance estimate of the first differences, so it lives here
-rather than in either module.
+"""Kernel spot-volatility estimator, shared by radf_kp() (kernel purge) and
+radf_sbz()/radf_sbz_union() (SBZ). Both need the same Nadaraya-Watson
+estimate of the spot variance of the first differences, so it lives here and
+not in either module.
 """
 
 import numpy as np

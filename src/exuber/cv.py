@@ -1,13 +1,13 @@
-"""Monte Carlo / bootstrap critical values. Ports of exuber's R/radf_mc.R,
-R/radf_wb.R (both the HLST and Phillips-Shi wild bootstrap variants) and
-R/radf_sb.R (sieve bootstrap).
+"""Monte Carlo and bootstrap critical values. This module ports exuber's
+R/radf_mc.R, R/radf_wb.R (both the HLST and the Phillips-Shi wild bootstrap
+variants) and R/radf_sb.R (the sieve bootstrap).
 
-RNG note: uses numpy's Generator, not R's RNG -- a given `seed` will not
-reproduce the same draws as the R functions of the same name. See
-exubercore's RNG design note / sim.py's module docstring. lag_select()/
-adf_res() (_lagselect.py) are the exception: they're deterministic (no
-RNG) and verified bit-for-bit against R -- see
-docs/replication/volatility-robustness/radf_wb_ps_validation.R.
+Random numbers. The module uses numpy's Generator and not R's generator, so
+a given `seed` does not reproduce the draws of the R functions with the same
+names. See the RNG design note of exubercore and the module docstring of
+sim.py. lag_select() and adf_res() (_lagselect.py) are the exception. They
+are deterministic, use no random numbers, and we verified them bit for bit
+against R in docs/replication/volatility-robustness/radf_wb_ps_validation.R.
 """
 
 from dataclasses import dataclass
@@ -49,9 +49,10 @@ class RadfDistr:
 
 @dataclass
 class RadfSbCv:
-    """radf_sb_cv()'s output shape: panel-only (cross-sectional mean of the
-    per-series BSADF paths, then quantiles of that and of its max) -- no
-    per-series adf_cv/sadf_cv/badf_cv, unlike RadfCv."""
+    """radf_sb_cv()'s output shape: panel-only. It takes the
+    cross-sectional mean of the per-series BSADF paths and then the
+    quantiles of that mean and of its maximum. Unlike RadfCv, it has no
+    per-series adf_cv, sadf_cv or badf_cv."""
 
     gsadf_panel_cv: np.ndarray
     bsadf_panel_cv: np.ndarray
@@ -113,11 +114,11 @@ def radf_mc_cv(
     gsadf_cv = np.quantile(r["gsadf"], PCNT)
 
     # BSADF cv: quantiles (across replications) of the cumulative max of the
-    # BADF path -- matches R's apply(badf, 2, cummax) |> apply(1, quantile).
+    # BADF path. This matches R's apply(badf, 2, cummax) |> apply(1, quantile).
     bsadf_cv = np.quantile(np.maximum.accumulate(r["badf"], axis=0), PCNT, axis=1).T
 
-    # BADF cv is NOT simulated -- exuber hardcodes the PWY asymptotic values
-    # here, constant across the window (same as the R source).
+    # The BADF cv is not simulated. exuber hardcodes the PWY asymptotic values
+    # here, constant across the window, and the R source does the same.
     asy_adf_crit = np.array([-0.44, -0.08, 0.6])
     badf_cv = np.tile(asy_adf_crit, (r["badf"].shape[0], 1))
 
@@ -148,10 +149,10 @@ def _wb_dgp_hlst(
     nr = len(dy)
     if dist_skew:
         # Hafner (2020), Step 1: w = u/sqrt(2) + (v^2-1)/2, u,v ~ iid N(0,1)
-        # independent -- E[w]=0, E[w^2]=1, E[w^3]=1, a fixed right-skewed
-        # multiplier for series with right-skewed return distributions
-        # (crypto in the source paper), vs. dist_rad's symmetric two-point
-        # multiplier.
+        # independent. Then E[w]=0, E[w^2]=1 and E[w^3]=1, so w is a fixed
+        # right-skewed multiplier for series with right-skewed return
+        # distributions (crypto in the source paper). dist_rad uses a
+        # symmetric two-point multiplier instead.
         u = rng.normal(size=nr)
         v = rng.normal(size=nr)
         w = u / np.sqrt(2) + (v**2 - 1) / 2
@@ -217,10 +218,10 @@ def radf_wb_cv(
 
     `dist_skew=True` uses Hafner (2020)'s fixed right-skewed multiplier
     distribution (`w = u/sqrt(2) + (v^2-1)/2`, u,v iid N(0,1)) instead of
-    the default standard normal or (`dist_rad=True`) Rademacher one --
-    appropriate when the series' own return distribution is notably
-    right-skewed (e.g. cryptocurrency returns, the paper's own
-    application). At most one of `dist_rad`/`dist_skew` may be True.
+    the default standard normal or (`dist_rad=True`) Rademacher one. It is
+    appropriate when the return distribution of the series is notably
+    right-skewed, for example cryptocurrency returns, which are the
+    application in the paper. At most one of `dist_rad`/`dist_skew` may be True.
     """
     r = _radf_wb_hlst(data, minw, nboot, dist_rad, dist_skew, seed)
 
@@ -265,8 +266,9 @@ def _wb_dgp_ps(
 
     Faithful port note: for adflag == 0, R's loop `for (i in
     (adflag+1):(nr-1))` never assigns `dyb[nr]` (R is 1-indexed, so the
-    last element of `dyb` is left at its initial 0) -- reproduced here
-    rather than "fixed", since it's exuber's actual bootstrap DGP.
+    last element of `dyb` is left at its initial 0). We reproduce this
+    and do not "fix" it, because it is the bootstrap DGP that exuber
+    actually uses.
     """
     beta, eps = fit.beta, fit.res
     dy = np.diff(y)
@@ -315,8 +317,9 @@ def _radf_wb_ps(
     bsadf = np.empty((pointer, nboot, nc))
 
     for j in range(nc):
-        # adf_res() is deterministic in y[:, j] -- fit once, reuse across
-        # bootstrap draws (R recomputes it every draw for the same result).
+        # adf_res() is deterministic in y[:, j], so we fit it once and reuse
+        # it across bootstrap draws. R recomputes it at every draw and gets
+        # the same result.
         fit = adf_res(y[:, j], adflag=adflag, type=type)
         for i in range(nboot):
             ystar = _wb_dgp_ps(y[:, j], fit, adflag, rng, tb)
@@ -460,8 +463,8 @@ def _radf_sb(
             dboot_res = boot_res - boot_res.mean()
             # Prepend is initmat[j] reversed to forward-time order (R's
             # original `initmat[j, lag:1]` was short by one element for
-            # lag > 0 -- a real bug, confirmed and since fixed upstream in
-            # exuber/R/radf_sb.R as `initmat[j, (lag + 1):1]`; this uses
+            # lag > 0. This was a real bug, which has since been fixed upstream
+            # in exuber/R/radf_sb.R as `initmat[j, (lag + 1):1]`. Here we use
             # the same full lag+1 reversal).
             prepend = initmat[j, :][::-1]
             filtered = _filter_recursive(coefmat[j, 0] + dboot_res, coefmat[j, 1:], initmat[j, :])

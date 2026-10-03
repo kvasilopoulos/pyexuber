@@ -4,36 +4,46 @@
 
 First PyPI release.
 
-- `radf()`: recursive ADF/SADF/GSADF/BSADF statistics via exubercore v0.3.1
-  (C++), univariate and panel.
-- `radf_crit()`: precomputed Monte Carlo critical values from the shared
-  exuber store (lag 0-4, n <= 4000), disk-cached.
-- `radf_mc_cv`/`radf_mc_distr`, `radf_wb_cv`/`radf_wb_distr` (HLST wild
-  bootstrap): locally simulated critical values and distributions.
-- `datestamp()`: explosive-episode start/peak/end/duration.
-- `monitor(boundary="bootstrap")`: Phillips & Shi (2020)'s wild-bootstrap
-  monitoring boundary, via `radf_wb_ps_cv()` on the training window.
-- `dating_hlw(join=3)`: HLW's run-joining rule for fragmented step-1
-  detections, matching exuber's `dating_hlw()`.
-- `sim_tree`, `sim_mar`, `sim_common`, `sim_coexplosive`, `sim_msbubble`,
-  `sim_falsebubble`: the remaining 2026-08 bubble DGPs (in `exuber.sim`).
-  Extra R attributes come back via `return_*` flags; multi-series DGPs
-  return 2-D arrays.
-- `diagnostics()`/`summary()`: per-series reject/not-reject verdict and the
-  statistic-vs-critical-value table, ported from R's `diagnostics()`/
-  `summary()` for `radf_obj` (verified against R's output).
-- `tidy()` for critical values and distributions (`RadfCv`, `RadfSbCv`,
-  `RadfDistr`, `RadfSbDistr`), `augment()` for critical values,
-  `tidy_join()` and `augment_join()`, matching R's row/column layout.
-- `ssu_test(type="gssu", union=True)` and `cusum_test()`: Kurozumi &
-  Nishi (2025)'s GSSU, UR/GUR union of rejections and CS/GCS/CSSQ/GCSSQ
-  tests, all against the paper's published Table I critical values.
-- `dating_knp(breaks=m)`: Kejriwal, Nguyen & Perron (2025)'s multi-bubble
-  dynamic programme (exact global minimiser, O(m n^2)).
-- `monitor_quantile(type="qpsy")`: Wu, Shi & Wu (2025)'s QPSY monitor
-  alongside QPWY; asymptotic boundary, oversized away from the median in
-  small samples (a UserWarning says so for QPSY).
-- `sim_psy1`, `sim_psy2`, `sim_ps1`, `sim_ps2`, `sim_blan`, `sim_evans`,
-  `sim_div`: bubble DGP simulators.
-- Requires Python >= 3.10. Wheels for Linux x86_64, macOS 15+ (arm64 and
-  x86_64), Windows x86_64; sdist builds against a system Armadillo.
+- `radf()` computes the recursive ADF, SADF, GSADF and BSADF statistics for
+  univariate and panel data, using exubercore v0.3.1 (C++).
+- `radf_crit()` returns precomputed Monte Carlo critical values from the
+  shared exuber store (lags 0 to 4, n up to 4000) and caches them on disk.
+- `radf_mc_cv` and `radf_mc_distr` simulate critical values and
+  distributions locally, as do `radf_wb_cv` and `radf_wb_distr` for the
+  Harvey, Leybourne, Sollis and Taylor (HLST) wild bootstrap.
+- `datestamp()` reports the start, peak, end and duration of each explosive
+  episode.
+- `monitor(boundary="bootstrap")` uses the wild-bootstrap monitoring
+  boundary of Phillips and Shi (2020), computed by `radf_wb_ps_cv()` on the
+  training window.
+- `dating_hlw(join=3)` applies the run-joining rule of Harvey, Leybourne and
+  Whitehouse (HLW) to fragmented step-1 detections. It matches `dating_hlw()` in
+  exuber.
+- `sim_tree`, `sim_mar`, `sim_common`, `sim_coexplosive`, `sim_msbubble` and
+  `sim_falsebubble` (in `exuber.sim`) complete the set of bubble DGPs added
+  in 2026-08. Extra R attributes come back through `return_*` flags, and
+  multi-series DGPs return 2-D arrays.
+- `diagnostics()` and `summary()` give a reject or not-reject verdict for
+  each series and a table of statistics against critical values. They are
+  ported from R's `diagnostics()` and `summary()` for `radf_obj`, and we
+  checked them against R's output.
+- `tidy()` works on critical values and distributions (`RadfCv`,
+  `RadfSbCv`, `RadfDistr`, `RadfSbDistr`), and `augment()` on critical
+  values. `tidy_join()` and `augment_join()` follow R's row and column
+  layout.
+- `ssu_test(type="gssu", union=True)` and `cusum_test()` implement the GSSU,
+  the UR/GUR union of rejections, and the CS, GCS, CSSQ and GCSSQ tests of
+  Kurozumi and Nishi (2025). All use the critical values in Table I of the
+  paper.
+- `dating_knp(breaks=m)` implements the multi-bubble dynamic programme of
+  Kejriwal, Nguyen and Perron (2025). It finds the exact global minimiser in
+  O(m n^2) time.
+- `monitor_quantile(type="qpsy")` adds the QPSY monitor of Wu, Shi and Wu
+  (2025) next to QPWY. It uses the asymptotic boundary, which is oversized
+  away from the median in small samples, and issues a `UserWarning` for
+  QPSY to say so.
+- `sim_psy1`, `sim_psy2`, `sim_ps1`, `sim_ps2`, `sim_blan`, `sim_evans` and
+  `sim_div` simulate bubble DGPs.
+- The package requires Python 3.10 or later. Wheels cover Linux x86_64,
+  macOS 15 or later (arm64 and x86_64) and Windows x86_64. The source
+  distribution builds against a system Armadillo.

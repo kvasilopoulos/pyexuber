@@ -1,11 +1,11 @@
-"""SBZ: WLS + kernel volatility bubble test (Harvey, Leybourne & Zu
-2019). Ported from exuber's R/radf_sbz.R -- see
-docs/volatility-robustness.md (root repo) for the formulas, papers and
-independent validation this ports.
+"""SBZ: WLS and kernel-volatility bubble test (Harvey, Leybourne & Zu 2019).
+Ported from exuber's R/radf_sbz.R. See docs/volatility-robustness.md (root
+repo) for the formulas, the papers and the independent validation of this
+port.
 
-RNG note: uses numpy's Generator, not R's RNG -- see sim.py's module
-docstring; a given `seed` will not reproduce the same draws as R's
-radf_sbz_cv()/radf_sbz_union().
+Random numbers. The module uses numpy's Generator and not R's generator, so a
+given `seed` does not reproduce the draws of R's radf_sbz_cv() and
+radf_sbz_union(). See the module docstring of sim.py.
 """
 
 from dataclasses import dataclass
@@ -104,10 +104,10 @@ def radf_sbz_cv(
     seed: int | None = None,
 ) -> RadfCv:
     """Wild bootstrap (HLST 2016, the same algorithm as `radf_wb_cv()`)
-    critical values for `radf_sbz()`'s supBZ statistic -- supBZ's own null
-    distribution depends on the WLS weighting, so it needs its own
-    data-dependent critical values, unlike the pivotal sign-based/STADF
-    tests."""
+    critical values for the supBZ statistic of `radf_sbz()`. The null
+    distribution of supBZ depends on the WLS weighting, so it needs its own
+    data-dependent critical values. The sign-based and STADF tests are
+    pivotal and do not."""
     x, columns = _to_2d_array(data)
     nr, nc = x.shape
     minw = minw if minw is not None else psy_minw(nr)
@@ -156,8 +156,8 @@ def radf_sbz_cv(
 class RadfSbzUnion:
     """Output of `radf_sbz_union()`: paired supDF/supBZ/U statistics,
     critical values and bootstrap p-values, one entry per series. Not a
-    `RadfResult` -- U's value needs the joint bootstrap, see
-    `radf_sbz_union()`'s own docstring."""
+    `RadfResult`, because the value of U needs the joint bootstrap. See the
+    docstring of `radf_sbz_union()`."""
 
     supDF: np.ndarray
     supBZ: np.ndarray
@@ -190,8 +190,8 @@ def radf_sbz_union(
     bootstrap's own 95% quantiles for the qDF/qBZ scaling ratio (the
     paper's Section 2.3). The joint bootstrap draw is required for the
     union's size guarantee (Theorem 3) to hold, which is why this stays
-    one bundled function rather than a statistic/critical-value pair --
-    see `radf_sbz()`/`radf_sbz_cv()` for the supBZ-only route."""
+    one bundled function and not a statistic and critical-value pair. For the
+    supBZ-only route, see `radf_sbz()` and `radf_sbz_cv()`."""
     x, columns = _to_2d_array(data)
     nr, nc = x.shape
     minw = minw if minw is not None else psy_minw(nr)

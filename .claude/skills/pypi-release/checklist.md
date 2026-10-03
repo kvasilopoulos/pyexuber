@@ -1,9 +1,10 @@
 # Releasing pyexuber to PyPI
 
-Run by the `pypi-release` skill's release mode; copy into the release
-PR/issue and tick as you go. Every item is a command or a yes/no check;
-nothing is optional unless marked. Items tagged **[gate]** are the human
-gates from `SKILL.md` — Claude stops there and hands over.
+The `pypi-release` skill runs this checklist in release mode. Copy it into
+the release PR or issue and tick items off as you go. Every item is either a
+command or a yes/no check, and none is optional unless marked. Items tagged
+**[gate]** are the human gates from `SKILL.md`. Claude stops at a gate and
+hands over.
 
 ## 1. One-time setup (skip once done)
 
@@ -19,22 +20,23 @@ gates from `SKILL.md` — Claude stops there and hands over.
 
 - [ ] `main` is green: <https://github.com/kvasilopoulos/pyexuber/actions>
 - [ ] `EXUBERCORE_TAG` in `CMakeLists.txt` matches the exubercore tag
-      `exuber` (R) vendors -- the two must not drift.
-- [ ] `version` in `pyproject.toml` bumped (semver; pre-1.0 breaking
-      changes bump minor).
-- [ ] **[gate 2]** `CHANGELOG.md`: rename "(unreleased)" to today's date,
-      entries cover every user-visible change since the last tag
+      `exuber` (R) vendors. The two pins must not drift apart.
+- [ ] `version` in `pyproject.toml` is bumped. Use semver, and while the
+      package is pre-1.0, a breaking change bumps the minor version.
+- [ ] **[gate 2]** In `CHANGELOG.md`, rename "(unreleased)" to today's date.
+      The entries must cover every user-visible change since the last tag
       (`git log --oneline vLAST..`).
 - [ ] **[gate 1]** `README.md` and `[project] description` still describe
       what the package does (scope table, supported platforms, Python
-      floor) -- it is the PyPI landing page.
-- [ ] `classifiers` in `pyproject.toml`: Python versions match
-      `[tool.cibuildwheel] build`; `Development Status` still accurate.
-- [ ] `src/exuber/__init__.py` docstring's "not yet ported" list is current.
+      floor). The README is the PyPI landing page.
+- [ ] The Python versions in `classifiers` in `pyproject.toml` match
+      `[tool.cibuildwheel] build`, and `Development Status` is still accurate.
+- [ ] The "not yet ported" list in the docstring of `src/exuber/__init__.py`
+      is current.
 - [ ] Local: `uv run --no-sync ruff check src/ tests/ && uv run --no-sync ty check src/`
 - [ ] Local: `uv build --sdist && uvx twine check --strict dist/* && tar tzf dist/*.tar.gz`
-      -- metadata/README render OK, no stray files (build/, .venv,
-      caches, CLAUDE.md, .github).
+      The metadata and README must render correctly, and there must be no
+      stray files (build/, .venv, caches, CLAUDE.md, .github).
 - [ ] Dry run: Actions -> Release -> Run workflow (target = `none`) on
       `main`; all four wheel jobs + sdist green. Download a wheel artifact
       and `uvx check-wheel-contents <wheel>`, then `pip install` it into
@@ -79,4 +81,5 @@ git push origin vX.Y.Z
 - Windows: `C:/vcpkg/...` paths in `[tool.cibuildwheel.windows]` are
   GitHub's hosted-runner layout; delvewheel bundles openblas/lapack/
   armadillo DLLs from `installed/x64-windows/bin`.
-- Never re-upload a version to PyPI: fix, bump the patch version, re-tag.
+- Never re-upload a version to PyPI. Fix the problem, bump the patch version
+  and tag again.

@@ -1,30 +1,34 @@
-"""Bias-corrected bubble dating (Kejriwal, Nguyen & Perron 2025).
-Ported from exuber's R/dating_knp.R (see docs/dating-and-root-
-inference.md in the umbrella repo for the full methodology and
-validation record).
+"""Bias-corrected bubble dating (Kejriwal, Nguyen & Perron 2025). Ported from
+exuber's R/dating_knp.R. The methodology and validation record are in
+docs/dating-and-root-inference.md in the umbrella repo.
 
-KNP's own model (unit root -> intercept+slope-fitted explosive regime
--> unit root resuming from a shifted level after an instantaneous
-collapse) is structurally identical to HLS's own Model 2, so this
-reuses exuber._hls_common's _hls_prefix_sums()/_hls_segment_ssr()/
-_hls_segment_coef() directly. Plain OLS over this model is provably
-inconsistent (their Theorem 1): the origination-date estimate converges
-to the true COLLAPSE date, not the origination date. Their Theorem 2 fix
-omits the single squared residual at the candidate collapse-date
-observation from the objective before minimising -- no new regression,
-just subtracting one already-available squared term. Unlike HLS's Model
-2/3 fit, KNP's candidate set imposes no sign constraint on the fitted
-"peak". breaks > 2 uses KNP's Section 3 dynamic programme (_knp_dp):
-regimes alternate unit root / explosive, every unit-root regime after a
-collapse omits its first residual, and every segment SSR is O(1) from the
-HLS prefix sums, so the DP returns the exact global minimiser in
-O(m T^2). The number of breaks is taken as given, as in the paper.
+The KNP model has a unit root, then an explosive regime fitted with an
+intercept and slope, then a unit root that resumes from a shifted level after
+an instantaneous collapse. It is structurally identical to Model 2 of HLS, so
+this module reuses _hls_prefix_sums(), _hls_segment_ssr() and
+_hls_segment_coef() from exuber._hls_common directly.
 
-Indexing note: like dating_pdc()/dating_hls()/dating_hlw(), dating_knp()'s
-origination/collapse are 1-indexed row positions into `data` -- NOT the
-0-indexed convention datestamp()'s Episode uses (kept 1-indexed
-deliberately so a number reported here matches the equivalent R run
-bit-for-bit).
+Plain OLS over this model is provably inconsistent (Theorem 1 of the
+paper): the estimate of the origination date converges to the true collapse
+date and not to the origination date. The fix in Theorem 2 omits the single
+squared residual at the candidate collapse-date observation from the
+objective before minimising. This needs no new regression, only the
+subtraction of one squared term that is already available. Unlike the Model
+2/3 fit of HLS, the KNP candidate set imposes no sign constraint on the
+fitted "peak".
+
+For breaks > 2 the module uses the dynamic programme of Section 3 of the
+paper (_knp_dp). Regimes alternate between unit root and explosive, every
+unit-root regime after a collapse omits its first residual, and every segment
+SSR costs O(1) from the HLS prefix sums. The programme therefore returns the
+exact global minimiser in O(m T^2). As in the paper, the number of breaks is
+taken as given.
+
+Indexing note: as in dating_pdc(), dating_hls() and dating_hlw(), the
+origination and collapse that dating_knp() returns are 1-indexed row
+positions into `data`. They do not follow the 0-indexed convention of the
+Episode in datestamp(). We keep them 1-indexed on purpose, so that a number
+reported here matches the equivalent R run bit for bit.
 """
 
 import math
@@ -128,16 +132,17 @@ def dating_knp(data, trim: float = 0.05, omit: bool = True, breaks: int = 2) -> 
     residual-omission-corrected sum of squared residuals over a
     three-regime model (unit root, explosive, unit root resuming from a
     shifted level after an instantaneous collapse). Plain OLS over this
-    model is provably inconsistent -- the origination-date estimate
-    converges to the true collapse date, not the origination date --
-    which omit=True (the default) fixes by dropping the single squared
+    model is provably inconsistent: the origination-date estimate
+    converges to the true collapse date and not the origination date.
+    The default omit=True fixes this by dropping the single squared
     residual at the candidate collapse date from the objective before
     minimising.
 
     omit=False gives the plain, provably inconsistent OLS estimator
-    (Theorem 1) -- kept mainly to demonstrate the correction's effect,
-    not for practical dating. Needs no critical values -- this is
-    residual-sum-of-squares model selection, not a hypothesis test.
+    (Theorem 1). We keep it mainly to show the effect of the correction and
+    not for practical dating. It needs no critical values, because it
+    selects a model by residual sum of squares and does not test a
+    hypothesis.
 
     breaks is the number of break dates (the paper's m): 2 per bubble, an
     odd number letting the last bubble run to the sample end. breaks > 2

@@ -1,6 +1,6 @@
-"""Common-bubble detection via PCA + PSY (Chen, Phillips & Shi 2023).
-Ported from exuber's R/radf_common.R -- see docs/multivariate.md for
-the full evaluation this implements.
+"""Common-bubble detection by PCA and PSY (Chen, Phillips & Shi 2023). Ported
+from exuber's R/radf_common.R. See docs/multivariate.md for the evaluation
+that this code implements.
 """
 
 from dataclasses import dataclass
@@ -20,9 +20,10 @@ class RadfCommonResult(RadfResult):
 
 
 def _pca(x: np.ndarray, r: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """First r principal components of x (centered, not scaled) via SVD --
-    the numerical core of radf_common(), factored out so it's testable
-    without the compiled _core extension radf() itself needs. Returns
+    """First r principal components of x (centered, not scaled) via SVD.
+    This is the numerical core of radf_common(). It is a separate function so
+    that it can be tested without the compiled _core extension that radf()
+    needs. It returns
     (loadings, scores, explained_variance_ratio): loadings is R's
     prcomp()$rotation, scores is prcomp()$x, restricted to r columns.
     """
@@ -39,15 +40,15 @@ def radf_common(data, minw: int | None = None, r: int = 1) -> RadfCommonResult:
     """Common-bubble detection via PCA + PSY (Chen, Phillips & Shi 2023).
 
     Extracts the panel's first principal component (PCA via SVD on the
-    centered panel) and runs the ordinary radf() on its scores -- the
-    paper's own Theorem 4.2/footnote 3: PC1 is "sufficient... for the
-    purpose of bubble identification." `r` > 1 only changes how many
+    centered panel) and runs the ordinary radf() on its scores. Theorem 4.2 and footnote 3 of
+    the paper say that PC1 is "sufficient... for the purpose of bubble
+    identification." Setting `r` > 1 only changes how many
     components are kept in `.loadings`/`.explained_variance_ratio` for
     inspection; detection always uses PC1.
 
-    Use radf_common_cv(), NOT radf_mc_cv(), for critical values --
-    radf_mc_cv() has no dependence on panel width N and was independently
-    found to be badly undersized here once N grows past a handful of
+    Use radf_common_cv() for the critical values, and not radf_mc_cv().
+    radf_mc_cv() does not depend on the panel width N, and independent
+    validation found it badly undersized here once N grows past a handful of
     series (docs/multivariate.md, "Independent validation (2026-08-09)").
     """
     x, columns = _to_2d_array(data)
@@ -85,22 +86,24 @@ class RadfCommonCv(RadfCv):
 def radf_common_cv(
     n: int, N: int, minw: int | None = None, nrep: int = 1000, seed: int | None = None
 ) -> RadfCommonCv:
-    """Critical values for radf_common(), simulated under its OWN null.
+    """Critical values for radf_common(), simulated under its own null.
 
     Theorem 4.3 of Chen, Phillips & Shi (2023) claims the PSY-on-PC1
     statistic's limiting null is asymptotically identical to plain
-    univariate GSADF's (independent of panel width N) -- but independent
-    validation found this does not hold at practical N: the true null
-    quantile *grows* with N (the opposite of a naive reading of the
-    paper's own finite-sample section), reaching more than double
-    radf_mc_cv()'s 95% quantile at N=100. See docs/multivariate.md,
-    "Independent validation (2026-08-09)", for the full finding.
+    univariate GSADF's, independent of the panel width N. Independent
+    validation found that this does not hold at practical N. The true null
+    quantile grows with N, which is the opposite of what a naive reading of
+    the finite-sample section of the paper suggests, and it reaches more than
+    double the 95% quantile of radf_mc_cv() at N=100. See
+    docs/multivariate.md, "Independent validation (2026-08-09)", for the full
+    finding.
 
     Simulates the null radf_common() actually needs: an N-column panel of
-    *independent* random walks (no true common factor -- the sharpest
-    possible null), extracted to PC1 and tested exactly as radf_common()
-    does. `N` must match the panel radf_common() was actually run on --
-    unlike radf_mc_cv(), this null distribution depends on it.
+    *independent* random walks, which has no true common factor and is the
+    sharpest possible null. It extracts PC1 and tests it exactly as
+    radf_common() does. `N` must match the panel on which radf_common() was
+    actually run, because, unlike radf_mc_cv(), this null distribution
+    depends on it.
     """
     if n <= 5:
         raise ValueError("n must be greater than 5")
@@ -131,10 +134,11 @@ def radf_common_cv(
     adf_cv = np.quantile(adf, PCNT)
     sadf_cv = np.quantile(sadf, PCNT)
     gsadf_cv = np.quantile(gsadf, PCNT)
-    # Matches R's apply(bsadf_mat, 2, cummax) |> apply(1, quantile): cummax
-    # of each replication's simulated bsadf path, THEN quantiles across
-    # replications -- not the same construction as radf_mc_cv()'s own
-    # (which cummaxes badf instead); ported as its own R source does it.
+    # This matches R's apply(bsadf_mat, 2, cummax) |> apply(1, quantile). We
+    # take the cummax of the simulated bsadf path of each replication and
+    # then the quantiles across replications. radf_mc_cv() builds its values
+    # differently, taking the cummax of badf. We port the construction of
+    # the R source for this function.
     bsadf_cv = np.quantile(np.maximum.accumulate(bsadf, axis=0), PCNT, axis=1).T
     asy_adf_crit = np.array([-0.44, -0.08, 0.6])
     badf_cv = np.tile(asy_adf_crit, (n_minw, 1))

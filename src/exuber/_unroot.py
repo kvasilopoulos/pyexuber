@@ -8,9 +8,10 @@ def _embed(x: np.ndarray, k: int) -> np.ndarray:
 
 
 def unroot(x: np.ndarray, lag: int = 0) -> np.ndarray:
-    """Port of exuber's R/unroot.R:unroot() -- builds the regression matrix
-    exubercore::radf() expects: column 0 is the dependent variable, the rest
-    are regressors (constant, lag, lagged differences for lag > 0)."""
+    """Port of exuber's R/unroot.R:unroot(). It builds the regression matrix that
+    exubercore::radf() expects. Column 0 is the dependent variable, and the
+    other columns are the regressors (constant, lag, and lagged differences
+    for lag > 0)."""
     x = np.asarray(x, dtype=float)
     if lag == 0:
         e = _embed(x, 2)

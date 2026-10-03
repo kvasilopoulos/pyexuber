@@ -1,17 +1,16 @@
-"""Reverse-regression crisis-origination/market-recovery dating
-(Phillips & Shi 2014). Ported from exuber's R/radf_recovery.R (see
-docs/dating-and-root-inference.md in the umbrella repo for the full
-methodology and validation record). Shipped with the same caveats as R:
-f_r (recovery) validates well, f_c (crisis origination) and the false-
-detection rate under H0 are noisier and not fully resolved -- see
-radf_recovery()'s docstring and docs/dating-and-root-inference.md's
-"Reverse-regression recovery dating" section.
+"""Dating of crisis origination and market recovery by reverse regression
+(Phillips & Shi 2014). Ported from exuber's R/radf_recovery.R. The
+methodology and validation record are in docs/dating-and-root-inference.md
+in the umbrella repo. It ships with the same caveats as in R. The recovery
+date f_r validates well, but the crisis origination date f_c and the false
+detection rate under H0 are noisier and not fully resolved. See the
+docstring of radf_recovery() and the section "Reverse-regression recovery
+dating" in docs/dating-and-root-inference.md.
 
-Indexing note: unlike dating_pdc()'s/dating_hls()'s/dating_hlw()'s/
-dating_knp()'s 1-indexed outputs, radf_recovery()'s f_c/f_r ARE 0-indexed
-positions (the same convention as datestamp()'s Episode), since they're
-derived directly from radf()'s own bsadf array the same way datestamp()
-is.
+Indexing note. The outputs of dating_pdc(), dating_hls(), dating_hlw() and
+dating_knp() are 1-indexed, but f_c and f_r of radf_recovery() are 0-indexed
+positions, as in the Episode of datestamp(). They are derived directly from
+the bsadf array of radf(), in the same way as in datestamp().
 """
 
 import warnings
@@ -52,7 +51,7 @@ def _radf_recovery_mc(
 
     badf = np.empty((n_minw, nrep))
     for i in range(nrep):
-        y = np.cumsum(rng.normal(size=n))[::-1]  # reversed null path -- see module docstring
+        y = np.cumsum(rng.normal(size=n))[::-1]  # reversed null path (see the module docstring)
         yxmat = unroot(y, lag=lag)
         result = _core.radf_stat(yxmat, minw, lag)
         badf[:, i] = result[:n_minw]
@@ -99,15 +98,15 @@ def _recovery_dates_from_bsadf(
 ) -> RadfRecoveryResult:
     """Phillips & Shi (2014) eq. 8-9 crossing rule, operating on an
     already-computed reverse-time bsadf array (kept separate from
-    radf_recovery() so the crossing logic is testable without radf()/the
-    C++ extension -- same split as datestamp() operating on a
-    pre-computed RadfResult/RadfCv).
+    radf_recovery() so that the crossing logic can be tested without radf()
+    or the C++ extension, in the same way that datestamp() operates on a
+    pre-computed RadfResult or RadfCv).
 
     Locates the first up-crossing of the reversal-calibrated boundary
     (market recovery, f_r) then the next down-crossing, searched only
     after the up-crossing (crisis origination in the original series,
-    f_c) -- so f_c <= f_r always, by construction, whenever both are
-    identified and uncensored. Positions are 0-indexed into the original
+    f_c). By construction f_c <= f_r whenever both are identified and
+    uncensored. Positions are 0-indexed into the original
     (non-reversed) series, matching datestamp()'s Episode convention.
     """
     if sig_lvl not in SIG_IDX:
@@ -165,11 +164,11 @@ def radf_recovery(
     Caveats (validation status, see docs/dating-and-root-inference.md's
     "Reverse-regression recovery dating" for the full numbers): f_r
     validates well against synthetic collapse-then-recovery data. f_c
-    shows a materially larger residual bias, and the empirical
-    false-detection rate under a pure random-walk null is around 29% at
-    n=100/minw=20/95% -- higher than comparable forward-test numbers
-    elsewhere in this package. Treat f_c and the overall detection rate
-    as exploratory pending further validation.
+    shows a materially larger residual bias. The empirical false-detection
+    rate under a pure random-walk null is around 29% at n=100, minw=20 and
+    95%, which is higher than comparable forward-test numbers elsewhere in
+    this package. Treat f_c and the overall detection rate as exploratory
+    until they are validated further.
     """
     if sig_lvl not in SIG_IDX:
         raise ValueError("sig_lvl must be one of 90, 95, 99")

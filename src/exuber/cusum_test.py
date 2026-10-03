@@ -1,12 +1,13 @@
-"""cusum_test(): Kurozumi & Nishi (2025)'s retrospective CUSUM (CS/GCS) and
-CUSUM-of-squares (CSSQ/GCSSQ) bubble tests. Ported from exuber's
-R/cusum_test.R -- see docs/volatility-robustness.md (root repo).
+"""cusum_test(): the retrospective CUSUM (CS/GCS) and CUSUM-of-squares
+(CSSQ/GCSSQ) bubble tests of Kurozumi & Nishi (2025). Ported from exuber's
+R/cusum_test.R. See docs/volatility-robustness.md (root repo).
 
-Every statistic is a sup/inf of a partial-sum process of Delta y_t (or
-its square), so the "generalized" (every window start) versions reduce to
-a running max/min: O(T), no double loop. CS/GCS reject on the right tail;
-CSSQ/GCSSQ are two-sided, each tail at alpha/2. Critical values are Table
-I's published asymptotic ones (ssu_test._KN_TABLE).
+Every statistic is a supremum or infimum of a partial-sum process of
+Delta y_t (or of its square). The "generalized" versions, which allow every
+window start, therefore reduce to a running maximum or minimum, so the cost
+is O(T) and no double loop is needed. CS and GCS reject on the right tail.
+CSSQ and GCSSQ are two-sided, with each tail at alpha/2. The critical values
+are the published asymptotic ones from Table I (ssu_test._KN_TABLE).
 """
 
 from dataclasses import dataclass

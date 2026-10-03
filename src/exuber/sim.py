@@ -1,9 +1,10 @@
-"""Bubble/DGP simulators. Ports of exuber's R/sim.R.
+"""Bubble and DGP simulators. Ports of exuber's R/sim.R.
 
-Note on reproducibility: R's rnorm()/rbinom() use R's own RNG algorithm.
-These use numpy's Generator (PCG64), so a given `seed` will not reproduce
-the same draws as the R functions of the same name -- only the algorithm
-is ported, not the bit-stream. See exubercore's RNG design note.
+Note on reproducibility. R's rnorm() and rbinom() use R's own random number
+algorithm. These functions use numpy's Generator (PCG64), so a given `seed`
+does not reproduce the draws of the R functions with the same names. Only the
+algorithm is ported and not the bit stream. See the RNG design note of
+exubercore.
 """
 
 import math
@@ -392,8 +393,9 @@ def sim_vol_break(
 ) -> np.ndarray:
     """i.i.d. Gaussian shocks whose std shifts permanently from `sigma` to
     `sigma * ratio` at observation floor(tau * n), for
-    sim_psy1(..., e=sim_vol_break(...)) -- the non-stationary-volatility
-    DGP the volatility-robust tests (radf_wb_cv etc.) target."""
+    sim_psy1(..., e=sim_vol_break(...)). This is the DGP with non-stationary
+    volatility that the volatility-robust tests (radf_wb_cv and others)
+    target."""
     if not (0 <= tau <= 1):
         raise ValueError("tau must be in [0, 1]")
     if not (ratio > 0 and sigma >= 0):
@@ -662,9 +664,10 @@ def sim_falsebubble(
 ) -> np.ndarray | tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Chen, Chen, Huang, Li & Zhang (2026) false bubble: a deterministic
     hump-shaped technology shock in dividend growth makes a present-value
-    fundamental -- with no bubble at all -- look locally explosive. A no-
-    bubble stress test. t1/t2/kappa are 1-indexed dates, like R. With
-    `return_components=True`, returns (price, dividend, technology)."""
+    fundamental look locally explosive, although there is no bubble at all. It
+    serves as a stress test in which no bubble is present. t1, t2 and kappa
+    are 1-indexed dates, as in R. With `return_components=True`, it returns
+    (price, dividend, technology)."""
     t1 = math.floor(0.3 * n) if t1 is None else t1
     t2 = math.floor(0.7 * n) if t2 is None else t2
     kappa = math.floor((t2 - t1) / 2) if kappa is None else kappa
