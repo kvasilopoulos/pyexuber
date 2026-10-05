@@ -41,7 +41,7 @@ hands over.
       `main`; all four wheel jobs + sdist green. Download a wheel artifact
       and `uvx check-wheel-contents <wheel>`, then `pip install` it into
       a clean venv and run:
-      `python -c "import exuber; print(exuber.__version__, exuber.radf(exuber.sim_psy1(100, seed=1)).gsadf)"`
+      `python -c "import exuber; from exuber.sim import sim_psy1; print(exuber.__version__, exuber.radf(sim_psy1(100, seed=1)).gsadf)"`
 - [ ] Optional: same with target = `testpypi`, then
       `pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple pyexuber==X.Y.Z`.
 

@@ -22,8 +22,9 @@ pip install pyexuber
 
 ```python
 import exuber
+from exuber.sim import sim_psy1
 
-y = exuber.sim_psy1(200, seed=1)          # single-bubble DGP
+y = sim_psy1(200, seed=1)                 # single-bubble DGP
 res = exuber.radf(y)                      # ADF / SADF / GSADF + BSADF sequence
 cv = exuber.radf_crit(n=200)              # precomputed Monte Carlo critical values
 exuber.datestamp(res, cv)                 # {'series1': [Episode(start=..., peak=..., end=...)]}
