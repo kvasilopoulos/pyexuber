@@ -81,7 +81,7 @@ markers = ["network: hits the live critical-value store (deselect with -m \"not 
 build = "cp310-* cp311-* cp312-* cp313-*"
 skip = "*-musllinux_* *_i686 *-win32 *_arm64_win"
 build-verbosity = 1
-test-requires = "pytest"
+test-requires = "pytest pandas"
 test-command = "pytest {project}/tests -m \"not network\""
 
 [tool.cibuildwheel.linux]
