@@ -177,7 +177,8 @@ def monitor_quantile(
     if type == "qpsy" and abs(tau - 0.5) > 0.05:
         warnings.warn(
             "QPSY's asymptotic boundary is oversized away from the median in small samples "
-            "(21% at tau = 0.8 with t3 data, n = 100, nominal 5%); see monitor_quantile's docstring.",
+            "(21% at tau = 0.8 with t3 data, n = 100, nominal 5%); "
+            "see monitor_quantile's docstring.",
             stacklevel=2,
         )
     sup_u = _quantile_boundary_sim(n, minw, nrep, delta, type == "qpsy", rng)
