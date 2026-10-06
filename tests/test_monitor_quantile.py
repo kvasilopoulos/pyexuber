@@ -10,6 +10,7 @@ from test_monitor import Y42
 from exuber.monitor_quantile import (
     _qpsy_stat_path,
     _qpwy_stat_path,
+    _quantile_boundary_boot,
     _quantile_boundary_sim,
     monitor_quantile,
 )
@@ -108,3 +109,53 @@ def test_monitor_quantile_alarm_never_before_minw():
         res = monitor_quantile(y, tau=0.5, minw=20, nrep=50, seed=1)
         if not np.isnan(res.alarm[0]):
             assert res.alarm[0] >= 20
+
+
+def test_quantile_boundary_boot_matches_brute_force():
+    # Same generator state: resample the centred differences, cumulate, and take
+    # the path maximum of the per-window statistics.
+    y = Y42[:30]
+    minw, tau = 8, 0.7
+    r_idx = np.arange(minw + 1, len(y) + 1)
+    u = np.diff(y)
+    u = u - u.mean()
+    for qpsy in (False, True):
+        got = _quantile_boundary_boot(y, tau, minw, 3, qpsy, np.random.default_rng(12))
+        rng = np.random.default_rng(12)
+        want = []
+        for _ in range(3):
+            ys = np.concatenate([[0.0], np.cumsum(rng.choice(u, size=len(y) - 1, replace=True))])
+            path = (
+                _qpsy_stat_path(ys, tau, r_idx, minw) if qpsy else _qpwy_stat_path(ys, tau, r_idx)
+            )
+            want.append(path.max())
+        np.testing.assert_allclose(got, want, atol=1e-12)
+
+
+def test_quantile_boundary_boot_ignores_the_series_level():
+    a = _quantile_boundary_boot(Y42[:30], 0.8, 8, 4, False, np.random.default_rng(4))
+    b = _quantile_boundary_boot(Y42[:30] + 25.0, 0.8, 8, 4, False, np.random.default_rng(4))
+    np.testing.assert_allclose(a, b, atol=1e-8)
+
+
+def test_monitor_quantile_bootstrap_boundary():
+    y = Y42[:30]
+    res = monitor_quantile(y, tau=0.8, minw=8, nrep=6, seed=3, boundary="bootstrap")
+    assert res.boundary_type == "bootstrap"
+    expected = np.quantile(
+        _quantile_boundary_boot(y, 0.8, 8, 6, False, np.random.default_rng(3)), 0.95
+    )
+    assert res.boundary[0] == pytest.approx(expected, abs=1e-12)
+    assert monitor_quantile(y, minw=8, nrep=10, seed=1).boundary_type == "asymptotic"
+    with pytest.raises(ValueError):
+        monitor_quantile(y, boundary="wild")
+
+
+def test_qpsy_bootstrap_boundary_does_not_warn_about_the_asymptotic_caveat():
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        monitor_quantile(
+            Y42[:24], tau=0.8, minw=8, nrep=2, seed=1, type="qpsy", boundary="bootstrap"
+        )

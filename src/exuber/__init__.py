@@ -38,8 +38,10 @@ The package contains the following parts.
   - quantile_test() is the quantile-regression global test of Wu, Shi & Wu
     2025 (quantile_test.py).
   - monitor_quantile() is the recursive quantile monitor (QPWY and QPSY) of
-    Wu, Shi & Wu 2025 (monitor_quantile.py). The module docstrings of these
-    monitors say which boundary variants are ported and which are deferred.
+    Wu, Shi & Wu 2025 (monitor_quantile.py), with the asymptotic boundary and
+    the bootstrap boundary of the paper's Algorithm 1. The module docstrings of
+    these monitors say which boundary variants are ported and which are
+    deferred.
   - rootstamp() and rootstamp_episodes() estimate the root of each episode
     (Guo, Sun & Wang 2019; Phillips & Magdalinos 2007) (rootstamp.py).
   - dating_pdc() dates bubbles by sequential sample splitting (Pang, Du &
@@ -71,12 +73,6 @@ types, because most code never needs to name them.
 Not re-exported here: the sim_*() DGP simulators of exuber.sim. They remain
 fully usable through `from exuber.sim import sim_psy1` and similar imports,
 but they are not part of the top-level `exuber` namespace.
-
-Not yet ported. These parts are deferred on purpose and have not been
-dropped by accident.
-  - The bootstrap critical values of monitor_quantile() (Algorithm 1 of the
-    paper). Each replicate costs the full O(T^2) QR sweep of QPSY. The
-    asymptotic boundary is ported, with its small-sample caveat.
 
 Note on radf_sb_cv/distr. The bootstrap DGP in this port prepends the full
 initmat[j, :] in reverse. R originally used initmat[j, lag:1], which is one

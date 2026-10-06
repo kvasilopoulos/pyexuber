@@ -20,6 +20,17 @@ Indexing convention. This differs from the R source and is consistent with
 the rest of pyexuber (see datestamp.py). The "alarm" value returned here is a
 0-indexed position into the original input array.
 
+Bootstrap boundary. boundary="bootstrap" implements Algorithm 1 of the paper
+in place of the asymptotic limit. It resamples the centred first differences
+with replacement, cumulates them into a null random walk and recomputes the
+whole QPWY or QPSY path on it. The boundary is the quantile of the path
+maxima over the replicates. The paper discards the first b = 100 draws to
+remove the initialisation effect. The statistic regresses with an intercept,
+so it does not depend on the level of the series, and with i.i.d. draws the
+discarded values would change nothing, so the burn-in is left out. Each
+replicate costs one full statistic path, O(T) QR fits for QPWY and O(T^2) for
+QPSY.
+
 Random numbers. The module uses numpy's Generator and not R's generator. See
 the module-level note of quantile_test().
 """
@@ -95,6 +106,26 @@ def _quantile_boundary_sim(
     return out
 
 
+def _quantile_boundary_boot(
+    y: np.ndarray, tau: float, minw: int, nrep: int, qpsy: bool, rng: np.random.Generator
+) -> np.ndarray:
+    """Path maxima of the i.i.d. residual bootstrap (Algorithm 1 of the paper):
+    resample the centred first differences, cumulate them, and recompute the
+    whole statistic path. Returns `nrep` maxima."""
+    n = len(y)
+    r_idx = np.arange(minw + 1, n + 1)
+    u = np.diff(y)
+    u = u - u.mean()
+    out = np.empty(nrep)
+    for i in range(nrep):
+        ystar = np.concatenate([[0.0], np.cumsum(rng.choice(u, size=n - 1, replace=True))])
+        path = (
+            _qpsy_stat_path(ystar, tau, r_idx, minw) if qpsy else _qpwy_stat_path(ystar, tau, r_idx)
+        )
+        out[i] = path.max()
+    return out
+
+
 @dataclass
 class MonitorQuantileResult:
     stat: np.ndarray  # (n_mon, nc)
@@ -108,6 +139,7 @@ class MonitorQuantileResult:
     iter: int
     type: str = "qpwy"
     series_names: list[str] | None = None
+    boundary_type: str = "asymptotic"
 
 
 def monitor_quantile(
@@ -118,6 +150,7 @@ def monitor_quantile(
     sig_lvl: float = 95,
     seed: int | None = None,
     type: str = "qpwy",
+    boundary: str = "asymptotic",
 ) -> MonitorQuantileResult:
     """Wu, Shi & Wu (2025)'s QPWY/QPSY real-time monitoring: quantile-
     regression (QR) analogues of PWY's and PSY's recursive ADF
@@ -134,21 +167,31 @@ def monitor_quantile(
     same way as sadf_cv in radf_mc_cv(), and it controls the first-crossing
     false-alarm rate.
 
-    Caveat: the boundary is asymptotic. It is well sized near the median
-    (3.5-4.0% at a nominal 5%, Gaussian and t3, tau = 0.5), but the small
-    early windows oversize it away from the median, QPSY badly even with
-    Gaussian data (35% at tau = 0.9; t3: 21% at tau = 0.8, 44% at 0.9;
-    n = 100). QPWY with t3: 7.5-8.5% at tau = 0.2/0.8, 12.5% at 0.9,
-    n = 150. These are R's numbers; see
+    `boundary="asymptotic"` (the default) simulates the limiting null
+    distribution. It is well sized near the median (3.5-4.0% at a nominal 5%,
+    Gaussian and t3, tau = 0.5), but the small early windows oversize it away
+    from the median, QPSY badly even with Gaussian data (35% at tau = 0.9;
+    t3: 21% at tau = 0.8, 44% at 0.9; n = 100). QPWY with t3: 7.5-8.5% at
+    tau = 0.2/0.8, 12.5% at 0.9, n = 150. These are R's numbers; see
     docs/alternative-paradigms.md. Using type="qpsy" with tau away from 0.5
-    issues a UserWarning. The paper's bootstrap critical values are not
-    ported.
+    and the asymptotic boundary issues a UserWarning.
+
+    `boundary="bootstrap"` implements Algorithm 1 of Wu, Shi & Wu: it
+    resamples the centred first differences, rebuilds the whole statistic path
+    on each resample and takes the quantile of the path maxima. `nrep` is then
+    the number of bootstrap replicates. It follows the finite-sample null
+    distribution of the statistic and so corrects the oversizing above, but
+    each replicate costs a full statistic path. With the IRLS solver of this
+    package QPSY takes tens of seconds per replicate at n = 200, so use the
+    bootstrap with QPSY only for short series or a small `nrep`.
 
     Random numbers: the function uses numpy's Generator and not R's generator.
     See the module-level note of quantile_test().
     """
     if type not in ("qpwy", "qpsy"):
         raise ValueError("type must be 'qpwy' or 'qpsy'")
+    if boundary not in ("asymptotic", "bootstrap"):
+        raise ValueError("boundary must be 'asymptotic' or 'bootstrap'")
     if not (0 < tau < 1):
         raise ValueError("tau must be in (0, 1)")
     _assert_sig_lvl(sig_lvl)
@@ -174,23 +217,35 @@ def monitor_quantile(
         psi = tau - (dy_full < _quantile_narm(dy_full, tau)).astype(float)
         delta[j] = float(np.clip(np.corrcoef(dy_full, psi)[0, 1], -1, 1))
 
-    if type == "qpsy" and abs(tau - 0.5) > 0.05:
+    if boundary == "asymptotic" and type == "qpsy" and abs(tau - 0.5) > 0.05:
         warnings.warn(
             "QPSY's asymptotic boundary is oversized away from the median in small samples "
-            "(21% at tau = 0.8 with t3 data, n = 100, nominal 5%); "
-            "see monitor_quantile's docstring.",
+            '(21% at tau = 0.8 with t3 data, n = 100, nominal 5%); use boundary="bootstrap" '
+            "for a boundary that follows the finite-sample distribution, see the "
+            "docstring of monitor_quantile.",
             stacklevel=2,
         )
-    sup_u = _quantile_boundary_sim(n, minw, nrep, delta, type == "qpsy", rng)
-    boundary = np.array([_quantile_narm(sup_u[:, j], sig_lvl / 100) for j in range(nc)])
+    if boundary == "asymptotic":
+        sup_u = _quantile_boundary_sim(n, minw, nrep, delta, type == "qpsy", rng)
+        bound = np.array([_quantile_narm(sup_u[:, j], sig_lvl / 100) for j in range(nc)])
+    else:
+        bound = np.array(
+            [
+                _quantile_narm(
+                    _quantile_boundary_boot(x[:, j], tau, minw, nrep, type == "qpsy", rng),
+                    sig_lvl / 100,
+                )
+                for j in range(nc)
+            ]
+        )
     for j in range(nc):
-        breach = np.where(stat_path[:, j] > boundary[j])[0]
+        breach = np.where(stat_path[:, j] > bound[j])[0]
         if breach.size:
             alarm[j] = r_idx[breach[0]] - 1
 
     return MonitorQuantileResult(
         stat=stat_path,
-        boundary=boundary,
+        boundary=bound,
         delta=delta,
         alarm=alarm,
         n=n,
@@ -200,4 +255,5 @@ def monitor_quantile(
         iter=nrep,
         type=type,
         series_names=columns,
+        boundary_type=boundary,
     )

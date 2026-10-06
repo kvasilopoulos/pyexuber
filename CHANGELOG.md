@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `monitor_quantile(boundary="bootstrap")` implements Algorithm 1 of Wu, Shi and Wu (2025) for the whole QPWY or QPSY path. It resamples the centred first differences, cumulates them, recomputes the statistic path and takes the quantile of the path maxima. It corrects most of the oversizing of the asymptotic boundary away from the median. Each replicate costs a full statistic path, so QPSY is slow with the IRLS solver. The result has a new `boundary_type` field, and the asymptotic caveat warning now points to the bootstrap.
+
 ## 0.1.0 (2026-10-05)
 
 First PyPI release.
