@@ -1,11 +1,13 @@
 # pyexuber
 
-Python bindings for [exubercore](../exubercore), which holds the C++
-`radf()`, written with pybind11. The package adds pure Python and numpy code
-that mirrors the R side of `exuber`. It is distributed as `pyexuber` and
-imported as `exuber`.
+The Python edition of [exuber](../exuber): recursive right-tailed unit root
+tests for explosive time series, with critical values, date-stamping,
+monitoring and simulation. The statistic is the C++ `radf()` in
+[exubercore](../exubercore), reached through pybind11. The rest is pure
+Python and numpy code that mirrors the R side of `exuber`. It is distributed
+as `pyexuber` and imported as `exuber`.
 
-**The package does more than its README table suggests.** The docstring of
+**The package is more than a wrapper.** The docstring of
 `src/exuber/__init__.py` is the source of truth for scope, and it is kept
 current. It shows that the pure Python modules already port the Monte Carlo,
 wild-bootstrap and sieve-bootstrap critical values, date-stamping, several

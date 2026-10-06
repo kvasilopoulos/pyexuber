@@ -1,7 +1,7 @@
 [project]
 name = "pyexuber"
 version = "0.1.0"
-description = "Recursive right-tailed unit root tests for explosive time series (Python bindings for exubercore)"
+description = "Testing for and dating explosive dynamics (bubbles) in time series: recursive right-tailed unit root tests (ADF, SADF, GSADF, BSADF), critical values, date-stamping and monitoring. Python edition of the R package exuber."
 readme = "README.md"
 authors = [
     { name = "Kostas Vasilopoulos", email = "k.vasilopoulo@gmail.com" }
