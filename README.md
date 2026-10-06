@@ -170,6 +170,19 @@ Statistical Software*:
 > Software*, 103(10), 1–26.
 > [doi:10.18637/jss.v103.i10](https://doi.org/10.18637/jss.v103.i10)
 
+```bibtex
+@Article{,
+  title = {{exuber}: Recursive Right-Tailed Unit Root Testing with {R}},
+  author = {Kostas Vasilopoulos and Efthymios Pavlidis and Enrique Mart{'i}nez-Garc{'i}a},
+  journal = {Journal of Statistical Software},
+  year = {2022},
+  volume = {103},
+  number = {10},
+  pages = {1--26},
+  doi = {10.18637/jss.v103.i10},
+}
+```
+
 ### License
 
 GPL-3.0-or-later, the same as exuber.
